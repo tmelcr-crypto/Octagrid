@@ -1,0 +1,1195 @@
+<title>Octagrid</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Layout: drafting-table app. Tool rail left, big canvas, context strip below. Light = paper plan, dark = night plan. */
+:root{
+  --bg:#e6e9e0; --panel:#f7f6f0; --panel2:#ecebe3; --ink:#1c2226; --dim:#667078; --line:#c6cabd;
+  --accent:#ff5a1f; --accent-ink:#ffffff; --good:#2f9e5b; --bad:#d6322b;
+  --ground:#e3e7da; --grid:#d3d9c8; --gridM:#bcc5ad; --road:#3b424a; --walk:#c9ccc0; --mark:#f4f1e4;
+  --park:#b7d29c; --water:#9bc6de; --sand:#e6dbb0; --shadow:rgba(30,40,30,.22);
+  --f-d:'Barlow Condensed','Arial Narrow',system-ui,sans-serif; --f-m:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#13181c; --panel:#222a30; --panel2:#2a343b; --ink:#e7ebe4; --dim:#8d99a0; --line:#38434a;
+  --accent:#ff7a3d; --accent-ink:#1a1a1a; --good:#4cc47f; --bad:#ff6259;
+  --ground:#1c2227; --grid:#262f35; --gridM:#323d45; --road:#0e1215; --walk:#444d54; --mark:#d8d6c6;
+  --park:#2f4a38; --water:#1f4a66; --sand:#5d5a49; --shadow:rgba(0,0,0,.4); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#13181c; --panel:#222a30; --panel2:#2a343b; --ink:#e7ebe4; --dim:#8d99a0; --line:#38434a;
+  --accent:#ff7a3d; --accent-ink:#1a1a1a; --good:#4cc47f; --bad:#ff6259;
+  --ground:#1c2227; --grid:#262f35; --gridM:#323d45; --road:#0e1215; --walk:#444d54; --mark:#d8d6c6;
+  --park:#2f4a38; --water:#1f4a66; --sand:#5d5a49; --shadow:rgba(0,0,0,.4); color-scheme:dark}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:500 15px/1.2 var(--f-d);overflow:hidden;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation;overscroll-behavior:none}
+*{box-sizing:border-box}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#app{height:100%;display:grid;grid-template-rows:auto minmax(0,1fr) auto;grid-template-columns:auto minmax(0,1fr)}
+#top{grid-column:1/3;display:flex;align-items:center;gap:6px;padding:6px 14px;background:var(--panel);border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none}
+#top::-webkit-scrollbar{display:none}
+.brand{font-weight:700;font-size:24px;letter-spacing:.04em;text-transform:uppercase;display:flex;align-items:center;gap:8px;margin-right:10px;white-space:nowrap}
+.brand svg{width:26px;height:26px}
+.sp{flex:1;min-width:6px}
+.ib{width:46px;height:46px;border-radius:10px;display:grid;place-items:center;color:var(--ink);flex:none}
+.ib svg,.tool svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.ib:active,.tool:active{background:var(--panel2)}
+.ib[disabled]{opacity:.3}
+.ib.on{background:var(--panel2);color:var(--accent)}
+.pill{height:38px;padding:0 12px;border:1px solid var(--line);border-radius:19px;font-size:15px;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;flex:none;display:flex;align-items:center;gap:6px}
+.pill.act{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
+.pill b{color:var(--accent);font-weight:700}
+#rail{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;gap:4px;padding:8px 6px;overflow-y:auto;scrollbar-width:none}
+.tool{width:60px;height:56px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);flex:none}
+.tool.on{background:var(--accent);color:var(--accent-ink)}
+#stage{position:relative;min-width:0;min-height:0;background:var(--ground)}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:crosshair}
+#hud{position:absolute;right:12px;top:10px;display:flex;flex-direction:column;align-items:flex-end;gap:2px;font:400 12px/1.35 var(--f-m);color:var(--dim);pointer-events:none;text-align:right}
+#hud b{color:var(--ink);font-weight:500}
+#toast{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:20px;font-size:15px;letter-spacing:.03em;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap;max-width:90%}
+#toast.show{opacity:1}
+#strip{grid-column:1/3;background:var(--panel);border-top:1px solid var(--line);padding:8px 14px calc(8px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;align-items:stretch;gap:6px;max-height:36vh;overflow-y:auto;scrollbar-width:none}
+.srow{display:flex;align-items:center;gap:8px;overflow-x:auto;scrollbar-width:none;flex:none;padding:1px}
+.srow::-webkit-scrollbar{display:none}
+#strip::-webkit-scrollbar{display:none}
+.chip{height:46px;min-width:64px;padding:0 14px;border-radius:10px;border:1.5px solid var(--line);display:flex;align-items:center;gap:8px;font-size:17px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;flex:none;background:var(--panel)}
+.chip small{font:400 11px var(--f-m);color:var(--dim);letter-spacing:0;text-transform:none}
+.chip.on{border-color:var(--accent);box-shadow:inset 0 0 0 1.5px var(--accent);color:var(--ink)}
+.chip i{width:18px;height:18px;border-radius:4px;display:block;border:1px solid rgba(0,0,0,.25);flex:none}
+.chip.act{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.chip.bad{color:var(--bad);border-color:var(--bad)}
+.chip[disabled]{opacity:.35}
+.vchip{min-width:52px;padding:0 8px;gap:6px;font:500 14px var(--f-m);height:44px}
+.vchip i{width:22px;height:22px}
+.tool{width:60px;height:56px}
+.lab{font:400 11px var(--f-m);color:var(--dim);text-transform:uppercase;letter-spacing:.08em;white-space:nowrap;flex:none}
+.hint{color:var(--dim);font-size:16px;white-space:nowrap;flex:none}
+.step{display:flex;align-items:center;gap:0;border:1.5px solid var(--line);border-radius:10px;flex:none;overflow:hidden;height:46px}
+.step button{width:46px;height:100%;font-size:24px;display:grid;place-items:center}
+.step button:active{background:var(--panel2)}
+.step span{min-width:62px;text-align:center;font:500 14px var(--f-m)}
+.step em{display:block;font:400 10px var(--f-m);color:var(--dim);font-style:normal;text-transform:uppercase;letter-spacing:.08em}
+.vr{width:1px;align-self:stretch;background:var(--line);margin:4px 2px;flex:none}
+#dlg{position:absolute;inset:0;background:rgba(0,0,0,.45);display:grid;place-items:center;padding:16px;z-index:5}
+#dlg[hidden]{display:none}
+#dlg .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;width:min(560px,100%);padding:16px;display:flex;flex-direction:column;gap:10px;max-height:90%}
+#dlg h2{margin:0;font-size:24px;letter-spacing:.04em;text-transform:uppercase}
+#dlg p{margin:0;color:var(--dim);font-size:16px}
+#dlg textarea{width:100%;height:160px;resize:none;background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:8px;font:400 12px/1.4 var(--f-m);padding:8px;-webkit-user-select:text;user-select:text}
+#dlg .row{display:flex;gap:8px;flex-wrap:wrap}
+@media (max-width:1300px){.brand span{display:none}.pill{font-size:13px;padding:0 9px;letter-spacing:.02em}#top{gap:4px;padding:6px 8px}}
+@media (max-width:640px){.tool{width:52px;height:56px;font-size:11px}.brand span{display:none}.hint{font-size:15px}}
+@media (prefers-reduced-motion:reduce){#toast{transition:none}}
+</style>
+
+<div id="app">
+  <div id="top">
+    <div class="brand"><svg viewBox="0 0 32 32" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round"><path d="M16 3v26M3 16h26M7 7l18 18M25 7L7 25"/><circle cx="16" cy="16" r="3.2" fill="var(--panel)"/></svg><span>Octagrid</span></div>
+    <button class="pill" id="bUndo" aria-label="Step back">↶ Step back</button>
+    <button class="ib" id="bRedo" aria-label="Redo"><svg viewBox="0 0 24 24"><path d="M15 7h4v4"/><path d="M18.5 11A8 8 0 1 0 16 17.5"/></svg></button>
+    <div class="sp"></div>
+    <button class="pill" id="bLimit" aria-label="City limit"></button>
+    <button class="pill" id="bEdge" aria-label="City edge"></button>
+    <button class="pill" id="bFinger" aria-label="Finger mode"></button>
+    <button class="ib on" id="bGrid" aria-label="Grid"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4zM4 12h16M12 4v16"/></svg></button>
+    <button class="ib" id="bOut" aria-label="Zoom out"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+    <button class="ib" id="bIn" aria-label="Zoom in"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></svg></button>
+    <button class="ib" id="bFit" aria-label="Fit city"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+    <button class="pill" id="bSave" aria-label="Save online">Save</button>
+    <button class="pill act" id="bExport">Export map</button>
+    <button class="ib" id="bData" aria-label="City data"><svg viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5zM8 4v5h7V4M8 20v-6h8v6"/></svg></button>
+  </div>
+  <div id="rail"></div>
+  <div id="stage">
+    <canvas id="cv"></canvas>
+    <div id="hud"></div>
+    <div id="toast"></div>
+    <div id="dlg" hidden><div class="card">
+      <h2>City data</h2>
+      <p>Copy this text to keep your city, or paste a saved city and load it. Your city also saves itself in this browser.</p>
+      <textarea id="dtxt" spellcheck="false"></textarea>
+      <div class="row">
+        <button class="chip act" id="dCopy">Copy</button>
+        <button class="chip" id="dLoad">Load text</button>
+        <button class="chip" id="dNew">New city</button>
+        <button class="chip" id="dClose">Close</button>
+      </div>
+    </div></div>
+  </div>
+  <div id="strip"></div>
+</div>
+
+<script>
+(()=>{
+'use strict';
+const $=s=>document.querySelector(s);
+const cv=$('#cv'), ctx=cv.getContext('2d');
+let W=1,H=1,dpr=1,dirty=true;
+const cam={x:0,y:0,s:26};
+const FH=0.16;               // floor height in cells, drawn compressed
+const M_PER_CELL=10;
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const rad=d=>d*Math.PI/180;
+
+/* ---------- catalogue (mirrors Block Runner) ---------- */
+const VCOL=['#ff3fb4','#35d8ff','#8a5cff','#ffb02e','#3dffa6','#ff4d6d','#4d7aff','#b79cff','#ff7a3d','#2bf3ff','#ffe14a','#ff2bd6','#6f86ff','#ffd0a0','#9fb8d8'];
+const RT={lane:{w:.6,n:'Lane',m:'6 m'},street:{w:1,n:'Street',m:'10 m'},avenue:{w:1.7,n:'Avenue',m:'17 m'}};
+/* each building type: base footprint, base floors, floors per variant step, cap = most floors Block Runner builds for that kind */
+const TYPES={
+  brick:    {n:'Brick',     kind:'solid',w:2,d:2,f0:2, fs:1,cap:6, tint:'#b5654a',runner:'brick'},
+  apartment:{n:'Flats',     kind:'solid',w:3,d:2,f0:4, fs:1,cap:8, tint:'#cdb99a',runner:'apartment'},
+  office:   {n:'Office',    kind:'solid',w:3,d:3,f0:6, fs:2,cap:30,tint:'#8a8d97',runner:'office'},
+  shop:     {n:'Shops',     kind:'solid',w:3,d:2,f0:1, fs:0,cap:2, tint:'#e8c45e',runner:'office'},
+  warehouse:{n:'Warehouse', kind:'solid',w:4,d:3,f0:2, fs:0,cap:3, tint:'#b9bcc4',runner:'warehouse'},
+  glass:    {n:'Glass',     kind:'solid',w:2,d:2,f0:14,fs:2,cap:40,tint:'#9fb8d8',runner:'glass'},
+  deco:     {n:'Deco',      kind:'solid',w:3,d:3,f0:12,fs:2,cap:40,tint:'#d9c27a',runner:'deco'},
+  park:     {n:'Park',      kind:'park',w:4,d:4,tint:'#8fbf6e'},
+  water:    {n:'Pond',      kind:'water',w:4,d:3,tint:'#7fb6d4'}
+};
+const SOLIDS=['brick','apartment','office','shop','warehouse','glass','deco'];
+const VD=[[0,0,0],[1,0,1],[0,1,2],[1,1,3],[2,0,0],[0,2,1],[2,1,2],[1,2,3],[2,2,4],[3,0,1],[0,3,2],[3,1,3],[1,3,4],[3,2,5],[3,3,6]];
+function variant(type,v){const T=TYPES[type],d=VD[v%15];
+  let fl=T.f0+(T.fs?d[2]*T.fs:(d[2]%2)); fl=clamp(fl,1,T.cap||40);
+  return {w:clamp(T.w+d[0],1,14),d:clamp(T.d+d[1],1,14),fl};}
+const OLDTYPE={house:'brick',tower:'glass',factory:'warehouse'};
+const CAR={sedan:{n:'Sedan',len:54,wid:26,cols:['#ff2bd6','#2bf3ff','#a259ff','#ffe14a','#3dffa6','#6f86ff']},
+  sports:{n:'Sports',len:52,wid:24,cols:['#ff2bd6','#ffe14a','#2bf3ff','#ff4d4d']},
+  truck:{n:'Truck',len:78,wid:33,cols:['#3d6fff','#ff7a3d','#3dffa6','#b79cff']},
+  police:{n:'Police',len:54,wid:26,cols:['#171a24']}};
+const OBJS=[['lamp','Lamp'],['sedan','Sedan'],['sports','Sports'],['truck','Truck'],['police','Police'],['health','Health'],['pistol','Pistol'],['mg','MG'],['cash','Cash'],['ped','Walker'],['cop','Cop'],['start','Start']];
+const AREAS=[['water','Pond'],['park','Park'],['sand','Beach'],['bld','Building'],['zone','District']];
+const ZP={homes:{n:'Homes',grid:8,road:'street',types:['brick','brick','brick','apartment','shop'],dens:.5,trees:.12,cars:1},
+  downtown:{n:'Downtown',grid:9,road:'street',types:['glass','office','deco','shop','apartment','glass'],dens:.6,trees:.04,cars:2},
+  industry:{n:'Industry',grid:10,road:'street',types:['warehouse','warehouse','warehouse','office'],dens:.4,trees:.03,cars:1},
+  green:{n:'Green',grid:0,types:[],dens:0,trees:.45,cars:0}};
+
+let S={r:[],b:[],t:[],a:[],o:[],z:[],n:48,e:{n:'wall',s:'wall',e:'lake',w:'lake'}};
+const SIZES=[32,48,64,96];
+const outside=(x,y)=>Math.abs(x)>S.n/2+1e-6||Math.abs(y)>S.n/2+1e-6;
+let undoS=[],redoS=[],sel=null,tool='road',roadType='street',buildType='brick',treeKind='oak',objKind='lamp',areaKind='water';
+let ghostRot=0,ghostVar={},ghostSz={},pending=null,hov=null,penSeen=false,fingerDraw=true,showGrid=true,spaceDown=false;
+let areaPts=[],areaMode='dots',areaLock=true,objCol=0,nodes=[],roadCurve=false,curvePts=[];
+
+/* ---------- geometry ---------- */
+function corners(b){const c=Math.cos(rad(b.rot)),s=Math.sin(rad(b.rot)),hw=b.w/2,hd=b.d/2;
+  return [[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]].map(([x,y])=>[b.x+x*c-y*s,b.y+x*s+y*c]);}
+const shapeOf=o=>o.pts||corners(o);
+const kindOf=o=>o.pts?(o.k==='bld'?'solid':o.k):o.kind;
+function inPoly(p,poly){let c=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+  const a=poly[i],b=poly[j];if((a[1]>p[1])!==(b[1]>p[1])&&p[0]<(b[0]-a[0])*(p[1]-a[1])/(b[1]-a[1])+a[0])c=!c;}return c;}
+function distEdges(p,P){let m=1e9;for(let i=0;i<P.length;i++){const a=P[i],b=P[(i+1)%P.length],dx=b[0]-a[0],dy=b[1]-a[1],l=dx*dx+dy*dy||1;
+  const t=clamp(((p[0]-a[0])*dx+(p[1]-a[1])*dy)/l,0,1);m=Math.min(m,Math.hypot(p[0]-a[0]-dx*t,p[1]-a[1]-dy*t));}return m;}
+const distPoly=(P,x,y)=>inPoly([x,y],P)?0:distEdges([x,y],P);
+const insideStrict=(p,P)=>inPoly(p,P)&&distEdges(p,P)>0.03;
+const orient=(p,q,r)=>(q[0]-p[0])*(r[1]-p[1])-(q[1]-p[1])*(r[0]-p[0]);
+function segCross(a,b,c,d){const e=1e-7,d1=orient(a,b,c),d2=orient(a,b,d),d3=orient(c,d,a),d4=orient(c,d,b);
+  return ((d1>e&&d2<-e)||(d1<-e&&d2>e))&&((d3>e&&d4<-e)||(d3<-e&&d4>e));}
+function bbox(P){let a=1e9,b=1e9,c=-1e9,d=-1e9;for(const p of P){a=Math.min(a,p[0]);c=Math.max(c,p[0]);b=Math.min(b,p[1]);d=Math.max(d,p[1]);}return [a,b,c,d];}
+function probes(P){const o=[];let cx=0,cy=0;for(let i=0;i<P.length;i++){const q=P[(i+1)%P.length];o.push(P[i],[(P[i][0]+q[0])/2,(P[i][1]+q[1])/2]);cx+=P[i][0];cy+=P[i][1];}o.push([cx/P.length,cy/P.length]);return o;}
+function polysOverlap(P,Q){
+  const A=bbox(P),B=bbox(Q);if(A[2]<=B[0]||B[2]<=A[0]||A[3]<=B[1]||B[3]<=A[1])return false;
+  for(let i=0;i<P.length;i++)for(let j=0;j<Q.length;j++)if(segCross(P[i],P[(i+1)%P.length],Q[j],Q[(j+1)%Q.length]))return true;
+  for(const p of probes(P))if(insideStrict(p,Q))return true;
+  for(const q of probes(Q))if(insideStrict(q,P))return true;
+  return false;}
+function area(P){let a=0;for(let i=0;i<P.length;i++){const q=P[(i+1)%P.length];a+=P[i][0]*q[1]-q[0]*P[i][1];}return a/2;}
+function centroid(P){let x=0,y=0;for(const p of P){x+=p[0];y+=p[1];}return [x/P.length,y/P.length];}
+function simplePoly(P){const n=P.length;for(let i=0;i<n;i++)for(let j=i+1;j<n;j++){if(j===i+1||(i===0&&j===n-1))continue;
+  if(segCross(P[i],P[(i+1)%n],P[j],P[(j+1)%n]))return false;}return true;}
+const plCache=new WeakMap();
+function pl(r){                 /* a road as a list of points: straight = 2, curved = flattened quadratic curve */
+  if(!r.c)return [r.a,r.b];
+  const k=r.a[0]+','+r.a[1]+','+r.c[0]+','+r.c[1]+','+r.b[0]+','+r.b[1],e=plCache.get(r);if(e&&e.k===k)return e.p;
+  const n=Math.max(8,Math.ceil((Math.hypot(r.c[0]-r.a[0],r.c[1]-r.a[1])+Math.hypot(r.b[0]-r.c[0],r.b[1]-r.c[1]))/.35)),p=[];
+  for(let i=0;i<=n;i++){const t=i/n,u=1-t;p.push([u*u*r.a[0]+2*u*t*r.c[0]+t*t*r.b[0],u*u*r.a[1]+2*u*t*r.c[1]+t*t*r.b[1]]);}
+  plCache.set(r,{k,p});return p;}
+function samples(r){const P=pl(r),o=[];
+  for(let s=0;s<P.length-1;s++){const dx=P[s+1][0]-P[s][0],dy=P[s+1][1]-P[s][1],n=Math.max(1,Math.ceil(Math.hypot(dx,dy)/.2));
+    for(let i=s?1:0;i<=n;i++)o.push([P[s][0]+dx*i/n,P[s][1]+dy*i/n]);}
+  return o;}
+function distSeg(r,x,y){const P=pl(r);let m=1e9;
+  for(let s=0;s<P.length-1;s++){const a=P[s],b=P[s+1],dx=b[0]-a[0],dy=b[1]-a[1],l=dx*dx+dy*dy||1;
+    const t=clamp(((x-a[0])*dx+(y-a[1])*dy)/l,0,1);m=Math.min(m,Math.hypot(x-a[0]-dx*t,y-a[1]-dy*t));}
+  return m;}
+function roadLen(r){const P=pl(r);let L=0;for(let i=0;i<P.length-1;i++)L+=Math.hypot(P[i+1][0]-P[i][0],P[i+1][1]-P[i][1]);return L;}
+const allShapes=()=>S.b.concat(S.a);
+function kindClash(a,b){if(a==='sand'||b==='sand')return false;return a==='solid'||b==='solid'||a!==b;}
+function conflictShape(P,kind,ign){
+  if(P.some(p=>outside(p[0],p[1])))return 'Outside the city limit';
+  for(const o of allShapes()){if(o===ign)continue;
+    if(kindClash(kind,kindOf(o))&&polysOverlap(P,shapeOf(o)))return 'Overlaps something';}
+  if(kind==='solid')for(const r of S.r){const hw=RT[r.t].w/2-.02;
+    for(const p of samples(r))if(distPoly(P,p[0],p[1])<hw)return 'Blocked by a road';}
+  return null;}
+const conflictB=(b,ign)=>conflictShape(corners(b),b.kind,ign);
+function roadJoints(r,o){        /* where two roads meet: crossings and shared end points */
+  const J=[],A=pl(r),B=pl(o);
+  for(let i=0;i<A.length-1;i++)for(let k=0;k<B.length-1;k++){const p=segInt({a:A[i],b:A[i+1]},{a:B[k],b:B[k+1]});if(p)J.push(p);}
+  for(const ea of [r.a,r.b])for(const eb of [o.a,o.b])if(Math.abs(ea[0]-eb[0])<1e-6&&Math.abs(ea[1]-eb[1])<1e-6)J.push(ea);
+  return J;}
+function conflictR(r){
+  const hw=RT[r.t].w/2-.02;
+  if(pl(r).some(p=>outside(p[0],p[1])))return 'Outside the city limit';
+  for(const o of allShapes())if(kindOf(o)==='solid'){const P=shapeOf(o);for(const p of samples(r))if(distPoly(P,p[0],p[1])<hw)return 'Blocked by a building';}
+  const sm=samples(r);
+  for(const o of S.r){if(o===r)continue;
+    const hs=RT[r.t].w/2+RT[o.t].w/2-.02;let J=null;
+    for(const p of sm){if(distSeg(o,p[0],p[1])>=hs)continue;
+      if(!J)J=roadJoints(r,o);
+      if(!J.some(q=>Math.hypot(q[0]-p[0],q[1]-p[1])<hs*1.6))return 'Too close to another road';}}
+  return null;}
+function conflictT(t,ign){
+  if(outside(t.x,t.y))return 'Outside the city limit';
+  for(const o of S.t)if(o!==ign&&Math.hypot(o.x-t.x,o.y-t.y)<.5)return 'Too close';
+  for(const r of S.r)if(distSeg(r,t.x,t.y)<RT[r.t].w/2+.15)return 'On a road';
+  for(const o of allShapes()){const k=kindOf(o);if(k==='park'||k==='sand')continue;
+    if(distPoly(shapeOf(o),t.x,t.y)<(k==='solid'?.25:0.001))return 'Blocked';}
+  return null;}
+function conflictO(o){
+  if(outside(o.x,o.y))return 'Outside the city limit';
+  if(o.k==='lamp')return null;
+  for(const s of allShapes()){const k=kindOf(s);if(k==='sand'||k==='park')continue;if(distPoly(shapeOf(s),o.x,o.y)<(k==='solid'?.3:0.001))return k==='solid'?'Inside a building':'In the water';}
+  return null;}
+const DIRS=[[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]];
+function roadEnd(s,p){
+  const vx=p.x-s[0],vy=p.y-s[1];if(Math.hypot(vx,vy)<.3)return null;
+  const k=((Math.round(Math.atan2(vy,vx)/(Math.PI/4))%8)+8)%8,d=DIRS[k],diag=d[0]&&d[1];
+  const n=Math.round((vx*d[0]+vy*d[1])/(diag?2:1));if(n<1)return null;
+  return {x:s[0]+d[0]*n,y:s[1]+d[1]*n,n,k,len:n*(diag?Math.SQRT2:1)};}
+function halfEnd(s,p){      /* next polygon dot: 8 directions, steps of half a cell */
+  const vx=p.x-s[0],vy=p.y-s[1];if(Math.hypot(vx,vy)<.2)return null;
+  const k=((Math.round(Math.atan2(vy,vx)/(Math.PI/4))%8)+8)%8,d=DIRS[k],diag=d[0]&&d[1];
+  const n=Math.round((vx*d[0]+vy*d[1])/(diag?2:1)/.5)*.5;if(n<=0)return null;
+  return [s[0]+d[0]*n,s[1]+d[1]*n];}
+function segInt(a,b){
+  const x1=a.a[0],y1=a.a[1],x2=a.b[0],y2=a.b[1],x3=b.a[0],y3=b.a[1],x4=b.b[0],y4=b.b[1];
+  const den=(x1-x2)*(y3-y4)-(y1-y2)*(x3-x4);if(Math.abs(den)<1e-9)return null;
+  const t=((x1-x3)*(y3-y4)-(y1-y3)*(x3-x4))/den,u=-((x1-x2)*(y1-y3)-(y1-y2)*(x1-x3))/den;
+  if(t<-1e-6||t>1+1e-6||u<-1e-6||u>1+1e-6)return null;
+  return [x1+t*(x2-x1),y1+t*(y2-y1)];}
+function rebuildNodes(){
+  const m=new Map();
+  const add=(x,y,w)=>{const k=Math.round(x*4)+','+Math.round(y*4),o=m.get(k);if(!o)m.set(k,{x,y,r:w/2});else o.r=Math.max(o.r,w/2);};
+  for(let i=0;i<S.r.length;i++)for(let j=i+1;j<S.r.length;j++){
+    const A=pl(S.r[i]),B=pl(S.r[j]),w=Math.max(RT[S.r[i].t].w,RT[S.r[j].t].w);
+    for(let p=0;p<A.length-1;p++)for(let q=0;q<B.length-1;q++){const x=segInt({a:A[p],b:A[p+1]},{a:B[q],b:B[q+1]});if(x)add(x[0],x[1],w);}}
+  nodes=[...m.values()];}
+
+/* ---------- history, storage ---------- */
+const KEY='octagrid.city.v2',KEY1='octagrid.city.v1';
+const snap=()=>JSON.stringify(S);
+function save(){try{localStorage.setItem(KEY,snap());}catch(e){}}
+const newSeed=()=>Math.floor(Math.random()*2147483646)+1;
+function normalise(o){
+  if(!o||!Array.isArray(o.r)||!Array.isArray(o.b)||!Array.isArray(o.t))throw new Error('bad');
+  const fixB=(b,i)=>{const type=OLDTYPE[b.type]||b.type;if(!TYPES[type])return null;
+    return {...b,type,kind:TYPES[type].kind,v:b.v!==undefined?b.v%15:i%15,seed:b.seed||newSeed()};};
+  const R={r:o.r.filter(r=>RT[r.t]&&r.a&&r.b),b:o.b.map(fixB).filter(Boolean),t:o.t,
+    a:(o.a||[]).filter(a=>a.pts&&a.pts.length>=3).map(a=>a.k==='bld'?{...a,type:OLDTYPE[a.type]||a.type,seed:a.seed||newSeed()}:a),o:o.o||[]};
+  let n=SIZES.includes(o.n)?o.n:48;const need=contentHalf(R);   /* older cities that spill past the limit get a bigger one */
+  while(n/2<need&&n<96)n=SIZES[SIZES.indexOf(n)+1]||96;
+  if(n/2<need)n=Math.ceil(need*2/8)*8;
+  R.z=(o.z||[]).filter(z=>z.pts&&z.pts.length>=3);R.n=n;const E=o.e||{n:'wall',s:'wall',e:'lake',w:'lake'};R.e={};for(const k of 'nsew')R.e[k]=E[k]==='lake'?'lake':'wall';return R;}
+function contentHalf(R){let m=0;const up=(x,y)=>{m=Math.max(m,Math.abs(x),Math.abs(y));};
+  R.r.forEach(r=>{up(r.a[0],r.a[1]);up(r.b[0],r.b[1]);if(r.c)up(r.c[0],r.c[1]);});
+  R.b.forEach(b=>corners(b).forEach(p=>up(p[0],p[1])));R.a.forEach(a=>a.pts.forEach(p=>up(p[0],p[1])));
+  R.t.forEach(t=>up(t.x,t.y));R.o.forEach(o=>up(o.x,o.y));return m;}
+function loadStr(str){S=normalise(JSON.parse(str));sel=null;pending=null;curvePts=[];areaPts=[];changed();}
+function push(prev){undoS.push(prev);if(undoS.length>150)undoS.shift();redoS=[];}
+function changed(){rebuildNodes();dirty=true;save();stats();renderStrip();syncBtns();}
+function restore(str){S=normalise(JSON.parse(str));sel=null;pending=null;curvePts=[];areaPts=[];}
+function undo(){if(!undoS.length)return;redoS.push(snap());restore(undoS.pop());changed();}
+function redo(){if(!redoS.length)return;undoS.push(snap());restore(redoS.pop());changed();}
+
+/* ---------- seed city ---------- */
+function rnd(seed){let s=seed;return()=>{s=(s*16807)%2147483647;return s/2147483647;};}
+function mkB(type,v,x,y,rot,sz){const T=TYPES[type],z=variant(type,v);
+  return {type,kind:T.kind,v,seed:newSeed(),x,y,rot,w:(sz&&sz.w)||z.w,d:(sz&&sz.d)||z.d,fl:(sz&&sz.fl)||z.fl};}
+function seed(){
+  S={r:[],b:[],t:[],a:[],o:[],z:[],n:48,e:{n:"wall",s:"wall",e:"lake",w:"lake"}};
+  const R=(a,b,t)=>S.r.push({a,b,t});
+  R([-16,0],[16,0],'avenue');R([-6,-10],[-6,10],'street');R([6,-10],[6,10],'street');
+  R([6,0],[12,-6],'street');S.r.push({a:[16,0],c:[22,0],b:[22,6],t:'street'});R([-16,6],[-6,6],'lane');R([6,-6],[16,-6],'lane');
+  const rd=rnd(11);
+  const B=(type,v,x,y,rot,sz)=>{const b=mkB(type,v,x,y,rot||0,sz);if(!conflictB(b))S.b.push(b);};
+  const G=(type,x,y,w,d)=>{const b={type,kind:TYPES[type].kind,v:0,seed:1,x,y,rot:0,w,d,fl:0};if(!conflictB(b))S.b.push(b);};
+  G('park',-11,-5.5,6,5);G('water',11.5,7,5,4);
+  B('glass',1,-2,-3.5,0);B('deco',9,2.5,-4,0);B('glass',5,-3,3.5,0);B('office',3,3.5,3.5,0);
+  B('shop',3,-10.5,-1.5,0);B('shop',10,-10.5,1.5,0);B('shop',7,-14,-1.5,0,{w:3,d:2});
+  B('apartment',2,-9,9,0);B('brick',4,-12,3.5,0);B('brick',8,-12,8.5,0);B('brick',12,-9,3.5,0);
+  B('warehouse',6,10.5,2.5,0);B('shop',0,2,-8,0);B('apartment',11,-2.5,-8,0);B('brick',5,9,-9,0);B('brick',1,13,-3,0);
+  B('brick',14,-2,8.5,0);B('office',7,9,5.5,0);B('brick',13,-14,-8,0);
+  const T=(x,y,k)=>{const t={x,y,k,v:rd()};if(!conflictT(t))S.t.push(t);};
+  for(let i=-15;i<=15;i+=2){T(i,1.3,'oak');T(i,-1.3,'pine');}
+  for(let i=0;i<14;i++)T(-13.5+rd()*5,-7.5+rd()*4,rd()<.5?'oak':'pine');
+  for(let i=-9;i<=9;i+=2){T(-4.6,i+.5,'oak');T(4.6,i+.5,'oak');}
+  for(let i=-14;i<=14;i+=4){S.o.push({k:'lamp',x:i,y:1.35,rot:0,c:0});S.o.push({k:'lamp',x:i+2,y:-1.35,rot:0,c:0});}
+  S.o.push({k:'start',x:0,y:.45,rot:0,c:0},{k:'sedan',x:-9,y:.4,rot:0,c:0},{k:'sports',x:10,y:-.4,rot:180,c:1},{k:'truck',x:-6,y:4,rot:90,c:0},
+    {k:'health',x:-4,y:-1.6,rot:0,c:0},{k:'mg',x:4,y:1.6,rot:0,c:0},{k:'pistol',x:-8,y:1.6,rot:0,c:0},{k:'cash',x:8,y:.6,rot:0,c:0},
+    {k:'ped',x:2,y:1.7,rot:0,c:2},{k:'ped',x:-2.5,y:-1.7,rot:0,c:5},{k:'cop',x:3.5,y:-1.7,rot:0,c:0},{k:'police',x:12,y:.4,rot:0,c:0});
+  /* the rest of the toolbox: polygon shapes, curves, a special building, more types */
+  S.a.push({k:'sand',pts:[[7,-21.5],[17,-22.5],[21.5,-17],[15,-12.5],[8,-14]]});
+  S.a.push({k:'water',pts:[[8.5,-20],[16,-21],[20,-17],[15,-14],[9.5,-15.2]]});
+  S.a.push({k:'park',pts:[[-20,-20],[-10,-21],[-8,-15],[-18,-13]]});
+  S.a.push({k:'sand',pts:[[8,4.6],[15.4,4.6],[15.4,9.4],[8,9.4]]});
+  S.r.push({a:[-16,6],b:[-16,14],t:'street'});S.r.push({a:[-16,14],c:[0,22],b:[16,14],t:'street'});S.r.push({a:[16,0],b:[16,14],t:'street'});S.r.push({a:[-6,10],b:[-6,14],t:'lane'});
+  S.a.push({k:'bld',type:'warehouse',v:3,fl:3,seed:5,pts:[[-12,15],[-1,15],[-1,18],[-12,18]]});
+  S.a.push({k:'bld',type:'deco',v:4,fl:8,seed:9,pts:[[2,15],[8,15],[8.5,17.5],[2,18]]});
+  B('office',9,-9,-16,0);B('apartment',7,-4,-17,0);B('glass',8,2,-18,0);B('brick',3,-14,12,0);B('apartment',5,11,11,0);B('shop',6,12,16,0);
+  for(let i=-12;i<=12;i+=3)T(i,19.5-Math.abs(i)*.12,i%2?'oak':'pine');
+  S.o.push({k:'ped',x:-15,y:-1.7,rot:0,c:1},{k:'sedan',x:14,y:-6.4,rot:0,c:2},{k:'lamp',x:-16.6,y:10,rot:0,c:0},{k:'lamp',x:16.6,y:7,rot:0,c:0},{k:'cash',x:-16,y:12,rot:0,c:0});
+}
+
+/* ---------- screen helpers, picking ---------- */
+const toS=(x,y)=>[(x-cam.x)*cam.s+W/2,(y-cam.y)*cam.s+H/2];
+const toW=(px,py)=>({x:(px-W/2)/cam.s+cam.x,y:(py-H/2)/cam.s+cam.y});
+function hull(pts){
+  pts=pts.slice().sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
+  const cr=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
+  const lo=[];for(const p of pts){while(lo.length>1&&cr(lo[lo.length-2],lo[lo.length-1],p)<=0)lo.pop();lo.push(p);}
+  const up=[];for(let i=pts.length-1;i>=0;i--){const p=pts[i];while(up.length>1&&cr(up[up.length-2],up[up.length-1],p)<=0)up.pop();up.push(p);}
+  lo.pop();up.pop();return lo.concat(up);}
+const hOf=o=>(o.fl||1)*FH*cam.s;
+function solidHull(o){const P=shapeOf(o).map(p=>toS(p[0],p[1])),h=hOf(o);return hull(P.concat(P.map(p=>[p[0],p[1]-h])));}
+const isSolid=o=>kindOf(o)==='solid';
+function pick(px,py,reach){
+  reach=reach||0;const w=toW(px,py),k=(reach+10)/cam.s;
+  let bt=null,bd=.55+reach/cam.s;
+  for(const t of S.t){const d=Math.hypot(t.x-w.x,t.y-(w.y-.3));if(d<bd){bd=d;bt=t;}}
+  let bo=null,od=.6+reach/cam.s;
+  for(const o of S.o){const d=Math.hypot(o.x-w.x,o.y-(w.y-(o.k==='lamp'?.4:.1)));if(d<od){od=d;bo=o;}}
+  if(bo&&(!bt||od<bd))return {k:'o',o:bo};
+  if(bt)return {k:'t',o:bt};
+  const solids=allShapes().filter(isSolid).sort((a,b)=>(b.pts?centroid(b.pts)[1]:b.y)-(a.pts?centroid(a.pts)[1]:a.y));
+  for(const b of solids)if(inPoly([px,py],solidHull(b)))return {k:b.pts?'a':'b',o:b};
+  let br=null;bd=1e9;
+  for(const r of S.r){const d=distSeg(r,w.x,w.y);if(d<RT[r.t].w/2+k&&d<bd){bd=d;br=r;}}
+  if(br)return {k:'r',o:br};
+  for(let i=S.a.length-1;i>=0;i--){const a=S.a[i];if(a.k!=='bld'&&inPoly([w.x,w.y],a.pts))return {k:'a',o:a};}
+  for(let i=S.z.length-1;i>=0;i--){if(inPoly([w.x,w.y],S.z[i].pts))return {k:'z',o:S.z[i]};}
+  for(let i=S.b.length-1;i>=0;i--){const b=S.b[i];if(b.kind!=='solid'&&distPoly(corners(b),w.x,w.y)<.001)return {k:'b',o:b};}
+  return null;}
+
+/* ---------- drawing ---------- */
+const C={};
+function readTheme(){const cs=getComputedStyle(document.documentElement);
+  for(const k of ['ground','grid','gridM','road','walk','mark','park','water','sand','shadow','accent','good','bad','ink','dim','bg'])C[k]=cs.getPropertyValue('--'+k).trim();
+  C.fm=getComputedStyle(document.body).getPropertyValue('--f-m');dirty=true;}
+const rgbCache={};
+function rgb(h){return rgbCache[h]||(rgbCache[h]=[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)));}
+function shade(h,f){const c=rgb(h);return 'rgb('+c.map(v=>Math.round(f<1?v*f:v+(255-v)*(f-1))).join(',')+')';}
+function mix(a,b,t){const x=rgb(a),y=rgb(b);return '#'+x.map((v,i)=>Math.round(v+(y[i]-v)*t).toString(16).padStart(2,'0')).join('');}
+const baseCol=o=>mix(VCOL[(o.v||0)%15],TYPES[o.type].tint,.5);
+function poly(P,close=true){ctx.beginPath();P.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));if(close)ctx.closePath();}
+
+function drawGrid(){
+  const s=cam.s,tl=toW(0,0),br=toW(W,H);
+  const lines=(step,col,lw)=>{ctx.strokeStyle=col;ctx.lineWidth=lw;ctx.beginPath();
+    for(let x=Math.floor(tl.x/step)*step;x<=br.x;x+=step){const p=(x-cam.x)*s+W/2;ctx.moveTo(Math.round(p)+.5,0);ctx.lineTo(Math.round(p)+.5,H);}
+    for(let y=Math.floor(tl.y/step)*step;y<=br.y;y+=step){const p=(y-cam.y)*s+H/2;ctx.moveTo(0,Math.round(p)+.5);ctx.lineTo(W,Math.round(p)+.5);}
+    ctx.stroke();};
+  if(s>=16)lines(1,C.grid,1);
+  lines(s>=16?5:(s>=9?10:20),C.gridM,1);
+  const o=toS(0,0);ctx.fillStyle=C.accent;ctx.globalAlpha=.6;ctx.beginPath();ctx.arc(o[0],o[1],3,0,7);ctx.fill();ctx.globalAlpha=1;}
+
+function fillArea(P,kind,alpha){          /* P in screen px */
+  const s=cam.s;ctx.globalAlpha=alpha;ctx.lineJoin='round';
+  const bb=bbox(P);
+  if(kind==='water'){
+    ctx.strokeStyle=C.sand;ctx.lineWidth=.55*s;poly(P);ctx.stroke();
+    ctx.fillStyle=C.water;poly(P);ctx.fill();
+    ctx.save();poly(P);ctx.clip();ctx.strokeStyle='rgba(255,255,255,.35)';ctx.lineWidth=Math.max(1,s*.05);ctx.beginPath();
+    for(let y=bb[1]+s*.7,r=0;y<bb[3];y+=s*.9,r++)for(let x=bb[0]+s*(.4+(r%2)*.6);x<bb[2];x+=s*1.8){ctx.moveTo(x,y);ctx.lineTo(x+s*.6,y);}
+    ctx.stroke();ctx.restore();
+  }else if(kind==='park'){
+    ctx.fillStyle=C.park;poly(P);ctx.fill();
+    ctx.save();poly(P);ctx.clip();ctx.strokeStyle=C.walk;ctx.lineWidth=.22*s;ctx.lineCap='round';ctx.beginPath();
+    ctx.moveTo(bb[0],bb[1]+(bb[3]-bb[1])*.25);ctx.lineTo(bb[2],bb[1]+(bb[3]-bb[1])*.75);ctx.stroke();ctx.restore();
+    ctx.strokeStyle=C.gridM;ctx.lineWidth=1.5;poly(P);ctx.stroke();
+  }else{
+    ctx.fillStyle=C.sand;poly(P);ctx.fill();
+    ctx.save();poly(P);ctx.clip();ctx.fillStyle='rgba(120,100,60,.25)';
+    for(let y=bb[1]+s*.3,r=0;y<bb[3];y+=s*.6,r++)for(let x=bb[0]+s*(.2+(r%2)*.3);x<bb[2];x+=s*.6){ctx.fillRect(x,y,2,2);}
+    ctx.restore();}
+  ctx.globalAlpha=1;}
+
+function pathRoad(r){const a=toS(r.a[0],r.a[1]),b=toS(r.b[0],r.b[1]);ctx.beginPath();ctx.moveTo(a[0],a[1]);
+  if(r.c){const c=toS(r.c[0],r.c[1]);ctx.quadraticCurveTo(c[0],c[1],b[0],b[1]);}else ctx.lineTo(b[0],b[1]);}
+function drawRoads(){
+  const s=cam.s;ctx.lineCap='round';ctx.lineJoin='round';
+  const line=r=>{pathRoad(r);ctx.stroke();};
+  ctx.strokeStyle=C.walk;for(const r of S.r){ctx.lineWidth=(RT[r.t].w+.5)*s;line(r);}
+  ctx.strokeStyle=C.road;for(const r of S.r){ctx.lineWidth=RT[r.t].w*s;line(r);}
+  ctx.lineCap='butt';
+  for(const r of S.r){pathRoad(r);
+    if(r.t==='avenue'){ctx.setLineDash([]);ctx.strokeStyle=C.walk;ctx.lineWidth=.16*s;ctx.stroke();}
+    else{ctx.setLineDash([s*.4,s*.3]);ctx.strokeStyle=C.mark;ctx.globalAlpha=.75;ctx.lineWidth=Math.max(1,s*(r.t==='lane'?.04:.06));ctx.stroke();ctx.globalAlpha=1;ctx.setLineDash([]);}}
+  ctx.fillStyle=C.road;
+  for(const n of nodes){const p=toS(n.x,n.y);ctx.beginPath();ctx.arc(p[0],p[1],n.r*s*1.02,0,7);ctx.fill();}
+  ctx.lineCap='round';}
+
+function treeColor(t){return t.k==='pine'?shade('#3f8a56',.8+t.v*.3):shade('#6fae4e',.82+t.v*.35);}
+function drawTree(t,alpha){
+  const s=cam.s,p=toS(t.x,t.y);ctx.globalAlpha=alpha;
+  ctx.fillStyle=C.shadow;ctx.beginPath();ctx.ellipse(p[0]+s*.2,p[1]+s*.05,s*.3,s*.14,0,0,7);ctx.fill();
+  ctx.fillStyle='#6b4b32';ctx.fillRect(p[0]-s*.04,p[1]-s*.25,s*.08,s*.28);
+  ctx.fillStyle=treeColor(t);
+  if(t.k==='pine'){ctx.beginPath();ctx.moveTo(p[0],p[1]-s*.95);ctx.lineTo(p[0]+s*.27,p[1]-s*.12);ctx.lineTo(p[0]-s*.27,p[1]-s*.12);ctx.closePath();ctx.fill();}
+  else{ctx.beginPath();ctx.arc(p[0],p[1]-s*.5,s*.32,0,7);ctx.fill();ctx.fillStyle='rgba(255,255,255,.14)';ctx.beginPath();ctx.arc(p[0]-s*.08,p[1]-s*.58,s*.16,0,7);ctx.fill();}
+  ctx.globalAlpha=1;}
+
+/* a prism: walls + roof for any polygon. Returns the roof polygon (screen). */
+function prism(P,h,base,alpha,lineCol,step,fl){
+  ctx.globalAlpha=alpha;
+  const A=area(P),walls=[];
+  for(let i=0;i<P.length;i++){const a=P[i],c=P[(i+1)%P.length];let nx=c[1]-a[1],ny=-(c[0]-a[0]);if(A<=0){nx=-nx;ny=-ny;}
+    const L=Math.hypot(nx,ny)||1;nx/=L;ny/=L;if(ny<=.02)continue;walls.push({a,c,nx,y:(a[1]+c[1])/2});}
+  walls.sort((p,q)=>p.y-q.y);
+  const fh=h/Math.max(1,fl);
+  for(const w of walls){
+    ctx.fillStyle=shade(base,.64-.3*w.nx);poly([w.a,w.c,[w.c[0],w.c[1]-h],[w.a[0],w.a[1]-h]]);ctx.fill();
+    if(lineCol&&fh>3){ctx.strokeStyle=lineCol;ctx.lineWidth=1;ctx.beginPath();
+      for(let f=1;f<fl;f+=step){const o=f*fh;ctx.moveTo(w.a[0],w.a[1]-o);ctx.lineTo(w.c[0],w.c[1]-o);}ctx.stroke();}}
+  const R=P.map(p=>[p[0],p[1]-h]);
+  poly(R);ctx.fillStyle=shade(base,1.12);ctx.fill();
+  return R;}
+const LINES={glass:['rgba(255,255,255,.34)',1],apartment:['rgba(40,28,16,.24)',1],office:['rgba(255,255,255,.2)',1],deco:['rgba(255,225,150,.3)',1],shop:null,brick:['rgba(40,20,10,.18)',1],warehouse:null};
+
+function drawShadow(o){
+  const s=cam.s,h=hOf(o),P=shapeOf(o).map(p=>toS(p[0],p[1])),Q=P.map(p=>[p[0]+h*.55,p[1]+h*.32]);
+  poly(hull(P.concat(Q)));ctx.fillStyle=C.shadow;ctx.fill();}
+
+function drawSolid(b,alpha){
+  const s=cam.s,P=shapeOf(b).map(p=>toS(p[0],p[1])),h=hOf(b),base=baseCol(b),ln=LINES[b.type];
+  const R=prism(P,h,base,alpha,ln&&ln[0],ln?ln[1]:1,b.fl||1);
+  ctx.globalAlpha=alpha;
+  if(b.pts){                       /* polygon building: inset roof + vents */
+    const c=centroid(R);poly(R.map(p=>[c[0]+(p[0]-c[0])*.72,c[1]+(p[1]-c[1])*.72]));ctx.fillStyle=shade(base,.88);ctx.fill();
+    ctx.fillStyle=shade(base,.7);ctx.fillRect(c[0]-s*.2,c[1]-s*.12,s*.4,s*.24);
+  }else{
+    const E1=[R[1][0]-R[0][0],R[1][1]-R[0][1]],E2=[R[3][0]-R[0][0],R[3][1]-R[0][1]];
+    const rp=(u,v)=>[R[0][0]+E1[0]*u+E2[0]*v,R[0][1]+E1[1]*u+E2[1]*v];
+    const pl=(arr,col)=>{poly(arr.map(q=>rp(q[0],q[1])));ctx.fillStyle=col;ctx.fill();};
+    if(b.type==='brick'){const long=b.w>=b.d;
+      pl(long?[[0,0],[1,0],[1,.5],[0,.5]]:[[0,0],[.5,0],[.5,1],[0,1]],shade(base,1.0));
+      ctx.strokeStyle=shade(base,.6);ctx.lineWidth=Math.max(1,s*.05);ctx.beginPath();
+      const a1=long?rp(0,.5):rp(.5,0),a2=long?rp(1,.5):rp(.5,1);ctx.moveTo(a1[0],a1[1]);ctx.lineTo(a2[0],a2[1]);ctx.stroke();}
+    else if(b.type==='apartment'){pl([[.15,.2],[.4,.2],[.4,.5],[.15,.5]],shade(base,.8));pl([[.6,.55],[.85,.55],[.85,.8],[.6,.8]],shade(base,.8));}
+    else if(b.type==='office'){pl([[.12,.12],[.88,.12],[.88,.88],[.12,.88]],shade(base,.92));pl([[.55,.5],[.8,.5],[.8,.75],[.55,.75]],shade(base,.7));}
+    else if(b.type==='shop'){const n=Math.max(4,Math.round(b.w*2));for(let i=0;i<n;i++)pl([[i/n,0],[(i+1)/n,0],[(i+1)/n,.22],[i/n,.22]],i%2?'#f6f1e2':VCOL[b.v%15]);}
+    else if(b.type==='glass'){pl([[.2,.2],[.8,.2],[.8,.8],[.2,.8]],shade(base,1.4));pl([[.4,.4],[.6,.4],[.6,.6],[.4,.6]],shade(base,.7));}
+    else if(b.type==='deco'){pl([[.12,.12],[.88,.12],[.88,.88],[.12,.88]],shade(base,1.2));pl([[.28,.28],[.72,.28],[.72,.72],[.28,.72]],'#d9c27a');pl([[.42,.42],[.58,.42],[.58,.58],[.42,.58]],shade(base,.6));}
+    else if(b.type==='warehouse'){const n=Math.max(3,Math.round(b.w));ctx.strokeStyle=shade(base,.7);ctx.lineWidth=Math.max(1,s*.07);ctx.beginPath();
+      for(let i=1;i<n;i++){const a1=rp(i/n,.05),a2=rp(i/n,.95);ctx.moveTo(a1[0],a1[1]);ctx.lineTo(a2[0],a2[1]);}ctx.stroke();
+      pl([[.8,.1],[.92,.1],[.92,.24],[.8,.24]],'#6d7378');}
+  }
+  ctx.strokeStyle='rgba(0,0,0,.28)';ctx.lineWidth=1;poly(R);ctx.stroke();
+  ctx.globalAlpha=1;}
+
+const OBJC={health:'#ffffff',pistol:'#17304a',mg:'#17304a',cash:'#58b36b'};
+const objCols=o=>CAR[o.k]?CAR[o.k].cols[o.c%CAR[o.k].cols.length]:null;
+function objCorners(o){const T=CAR[o.k],L=T.len/60,Wd=T.wid/60;return corners({x:o.x,y:o.y,rot:o.rot,w:L,d:Wd});}
+function drawObj(o,alpha){
+  const s=cam.s,p=toS(o.x,o.y);ctx.globalAlpha=alpha;
+  if(CAR[o.k]){
+    const P=objCorners(o).map(q=>toS(q[0],q[1])),col=objCols(o),h=.26*s;
+    poly(P.map(q=>[q[0]+h*.5,q[1]+h*.3]));ctx.fillStyle=C.shadow;ctx.fill();
+    const R=prism(P,h,col,alpha,null,1,1);
+    const c=centroid(R);poly(R.map(q=>[c[0]+(q[0]-c[0])*.55,c[1]+(q[1]-c[1])*.6]));ctx.fillStyle='rgba(15,20,40,.8)';ctx.fill();
+    if(o.k==='police'){ctx.fillStyle='#e8e8f0';poly(R.map(q=>[c[0]+(q[0]-c[0])*.9,c[1]+(q[1]-c[1])*.9]));ctx.globalAlpha=alpha*.25;ctx.fill();ctx.globalAlpha=alpha;
+      ctx.fillStyle='#ff3b5c';ctx.fillRect(c[0]-s*.1,c[1]-s*.04,s*.09,s*.08);ctx.fillStyle='#3b8bff';ctx.fillRect(c[0]+s*.01,c[1]-s*.04,s*.09,s*.08);}
+  }else if(o.k==='lamp'){
+    const col=(Math.round(o.x)+Math.round(o.y))%2?'#ff2bd6':'#2bf3ff';
+    const g=ctx.createRadialGradient(p[0],p[1],0,p[0],p[1],s*1.1);g.addColorStop(0,col);g.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.globalAlpha=alpha*.28;ctx.fillStyle=g;ctx.beginPath();ctx.arc(p[0],p[1],s*1.1,0,7);ctx.fill();ctx.globalAlpha=alpha;
+    ctx.strokeStyle='#4a3a7a';ctx.lineWidth=Math.max(2,s*.07);ctx.lineCap='round';ctx.beginPath();ctx.moveTo(p[0],p[1]);ctx.lineTo(p[0],p[1]-s*.95);ctx.stroke();
+    ctx.fillStyle=col;ctx.fillRect(p[0]-s*.1,p[1]-s*1.02,s*.22,s*.08);
+  }else if(o.k==='ped'||o.k==='cop'){
+    ctx.fillStyle=C.shadow;ctx.beginPath();ctx.ellipse(p[0]+s*.05,p[1]+s*.02,s*.14,s*.07,0,0,7);ctx.fill();
+    ctx.fillStyle=o.k==='cop'?'#2a4aa8':VCOL[(o.c||0)%15];ctx.fillRect(p[0]-s*.1,p[1]-s*.38,s*.2,s*.38);
+    ctx.fillStyle='#f2c6a0';ctx.beginPath();ctx.arc(p[0],p[1]-s*.46,s*.11,0,7);ctx.fill();
+    if(o.k==='cop'){ctx.fillStyle='#1a2a6a';ctx.fillRect(p[0]-s*.12,p[1]-s*.6,s*.24,s*.08);}
+  }else if(o.k==='start'){
+    const g=ctx.createRadialGradient(p[0],p[1],0,p[0],p[1],s*.9);g.addColorStop(0,C.accent);g.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.globalAlpha=alpha*.4;ctx.fillStyle=g;ctx.beginPath();ctx.arc(p[0],p[1],s*.9,0,7);ctx.fill();ctx.globalAlpha=alpha;
+    ctx.fillStyle=C.accent;ctx.beginPath();for(let i=0;i<10;i++){const r=i%2?s*.17:s*.38,a=-Math.PI/2+i*Math.PI/5;ctx.lineTo(p[0]+Math.cos(a)*r,p[1]-s*.4+Math.sin(a)*r);}ctx.closePath();ctx.fill();
+    ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();
+  }else{   /* pickups */
+    const bx=p[0]-s*.2,by=p[1]-s*.45,sz=s*.4;
+    ctx.fillStyle=C.shadow;ctx.beginPath();ctx.ellipse(p[0]+s*.05,p[1]+s*.02,s*.22,s*.09,0,0,7);ctx.fill();
+    ctx.fillStyle=OBJC[o.k];ctx.fillRect(bx,by,sz,sz);ctx.strokeStyle='#3fe0ff';ctx.lineWidth=1.5;ctx.strokeRect(bx,by,sz,sz);
+    ctx.fillStyle=o.k==='health'?'#e0364f':o.k==='cash'?'#d6f5dc':'#3fe0ff';
+    if(o.k==='health'){ctx.fillRect(bx+sz*.4,by+sz*.15,sz*.2,sz*.7);ctx.fillRect(bx+sz*.15,by+sz*.4,sz*.7,sz*.2);}
+    else if(o.k==='cash'){ctx.fillRect(bx+sz*.15,by+sz*.3,sz*.7,sz*.4);}
+    else{const n=o.k==='mg'?3:1;for(let i=0;i<n;i++)ctx.fillRect(bx+sz*(n===1?.42:.2+i*.27),by+sz*.2,sz*.16,sz*.6);}
+  }
+  ctx.globalAlpha=1;}
+
+function selOutline(){
+  if(!sel)return;ctx.strokeStyle=C.accent;ctx.fillStyle=C.accent;ctx.lineWidth=2.5;ctx.setLineDash([7,5]);
+  const o=sel.o;
+  if(sel.k==='b'||sel.k==='a'||sel.k==='z'){poly(isSolid(o)?solidHull(o):shapeOf(o).map(p=>toS(p[0],p[1])));ctx.stroke();}
+  else if(sel.k==='t'||sel.k==='o'){const p=toS(o.x,o.y);ctx.beginPath();ctx.arc(p[0],p[1]-cam.s*.4,cam.s*.6,0,7);ctx.stroke();}
+  else{ctx.lineCap='round';
+    ctx.lineWidth=RT[o.t].w*cam.s+6;ctx.setLineDash([]);ctx.globalAlpha=.28;pathRoad(o);ctx.stroke();ctx.globalAlpha=1;
+    const hs=[o.a,o.b].concat(o.c?[o.c]:[]).map((q,i)=>[toS(q[0],q[1]),i===2]);
+    for(const [p,sq] of hs){ctx.fillStyle=C.accent;if(sq)ctx.fillRect(p[0]-10,p[1]-10,20,20);else{ctx.beginPath();ctx.arc(p[0],p[1],11,0,7);ctx.fill();}ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(p[0],p[1],4,0,7);ctx.fill();}}
+  ctx.setLineDash([]);}
+
+function label(txt,x,y){ctx.font='500 13px '+C.fm;
+  const w=ctx.measureText(txt).width+14;ctx.fillStyle=C.ink;ctx.globalAlpha=.9;ctx.beginPath();ctx.roundRect?ctx.roundRect(x,y,w,24,6):ctx.rect(x,y,w,24);ctx.fill();ctx.globalAlpha=1;
+  ctx.fillStyle=C.bg;ctx.fillText(txt,x+7,y+16);}
+
+function placeGhost(){
+  const w=(drag&&drag.mode==='place')?drag.start:cur||hov;if(!w)return null;
+  const T=TYPES[buildType],z=ghostSz[buildType]||variant(buildType,ghostVar[buildType]||0);
+  const rot=(drag&&drag.mode==='place')?drag.rot:ghostRot;
+  const p=(drag&&drag.mode==='place')?w:{x:snapHalf(w.x),y:snapHalf(w.y)};
+  return {type:buildType,kind:T.kind,v:ghostVar[buildType]||0,x:p.x,y:p.y,rot,w:z.w,d:z.d,fl:z.fl||0};}
+function objGhost(){
+  const w=(drag&&drag.mode==='obj')?drag.start:cur||hov;if(!w)return null;
+  const rot=(drag&&drag.mode==='obj')?drag.rot:ghostRot;
+  return {k:objKind,x:snapHalf(w.x),y:snapHalf(w.y),rot,c:objCol};}
+
+function drawOverlay(){
+  const s=cam.s;
+  if(tool==='road'&&s>=14){          /* the lock points: every road end lands on one of these */
+    const tl=toW(0,0),br=toW(W,H);ctx.fillStyle=C.accent;ctx.globalAlpha=.32;
+    for(let x=Math.ceil(tl.x);x<=br.x;x++)for(let y=Math.ceil(tl.y);y<=br.y;y++){const p=toS(x,y);ctx.fillRect(p[0]-1.5,p[1]-1.5,3,3);}
+    ctx.globalAlpha=1;}
+  if(tool==='road'&&roadCurve){
+    const to=cur||hov;
+    if(curvePts.length===0&&to){const p=toS(Math.round(to.x),Math.round(to.y));ctx.fillStyle=C.accent;ctx.globalAlpha=.8;ctx.beginPath();ctx.arc(p[0],p[1],6,0,7);ctx.fill();ctx.globalAlpha=1;}
+    else if(curvePts.length&&to){
+      const pts=curvePts.map(q=>q.slice());let e=roadEnd(pts[pts.length-1],to);
+      const sp=toS(pts[0][0],pts[0][1]);
+      ctx.strokeStyle=C.accent;ctx.globalAlpha=.3;ctx.lineWidth=1;ctx.setLineDash([4,6]);ctx.beginPath();
+      const lp=toS(pts[pts.length-1][0],pts[pts.length-1][1]);for(const d of DIRS){ctx.moveTo(lp[0],lp[1]);ctx.lineTo(lp[0]+d[0]*s*30,lp[1]+d[1]*s*30);}ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=1;
+      if(e){pts.push([e.x,e.y]);}
+      let ghost=null;
+      if(pts.length===3&&Math.abs(orient(pts[0],pts[1],pts[2]))>1e-6)ghost={a:pts[0],c:pts[1],b:pts[2],t:roadType};
+      else if(pts.length>=2){ghost={a:pts[0],b:pts[pts.length-1],t:roadType};}
+      if(ghost){const bad=ghost.c?conflictR(ghost):null;ctx.lineCap='round';ctx.strokeStyle=bad?C.bad:C.accent;ctx.globalAlpha=.55;ctx.lineWidth=RT[roadType].w*s;pathRoad(ghost);ctx.stroke();ctx.globalAlpha=1;
+        if(ghost.c)label(Math.round(roadLen(ghost)*M_PER_CELL)+' m curve',clamp(toS(ghost.b[0],ghost.b[1])[0]+14,6,W-130),clamp(toS(ghost.b[0],ghost.b[1])[1]-34,6,H-30));}
+      pts.forEach((q,i)=>{const p=toS(q[0],q[1]);ctx.fillStyle=i===1&&pts.length===3?'#fff':C.accent;ctx.beginPath();ctx.arc(p[0],p[1],i===0?7:6,0,7);ctx.fill();ctx.strokeStyle=C.accent;ctx.lineWidth=2;ctx.stroke();});
+    }
+  }else if(tool==='road'){
+    const st=pending||(drag&&drag.mode==='road'?drag.start:null);
+    if(st){
+      const sp=toS(st[0],st[1]);
+      ctx.strokeStyle=C.accent;ctx.globalAlpha=.3;ctx.lineWidth=1;ctx.setLineDash([4,6]);ctx.beginPath();
+      for(const d of DIRS){ctx.moveTo(sp[0],sp[1]);ctx.lineTo(sp[0]+d[0]*s*30,sp[1]+d[1]*s*30);}ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=1;
+      const to=cur||hov;const e=to&&roadEnd(st,to);
+      if(e){const r={a:st,b:[e.x,e.y],t:roadType},bad=conflictR(r);
+        const ep=toS(e.x,e.y);ctx.lineCap='round';
+        ctx.strokeStyle=bad?C.bad:C.accent;ctx.globalAlpha=.55;ctx.lineWidth=RT[roadType].w*s;ctx.beginPath();ctx.moveTo(sp[0],sp[1]);ctx.lineTo(ep[0],ep[1]);ctx.stroke();ctx.globalAlpha=1;
+        ctx.fillStyle=bad?C.bad:C.accent;ctx.beginPath();ctx.arc(ep[0],ep[1],6,0,7);ctx.fill();
+        label(Math.round(e.len*M_PER_CELL)+' m · '+(e.k*45)+'°',clamp(ep[0]+14,6,W-110),clamp(ep[1]-34,6,H-30));}
+      ctx.fillStyle=C.accent;ctx.beginPath();ctx.arc(sp[0],sp[1],7,0,7);ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
+    }else if(hov){const p=toS(Math.round(hov.x),Math.round(hov.y));ctx.fillStyle=C.accent;ctx.globalAlpha=.7;ctx.beginPath();ctx.arc(p[0],p[1],5,0,7);ctx.fill();ctx.globalAlpha=1;}
+  }
+  if(tool==='build'){
+    const g=placeGhost();
+    if(g){const bad=conflictB(g);
+      if(g.kind==='solid')drawSolid(g,.65);else fillArea(corners(g).map(p=>toS(p[0],p[1])),g.kind,.7);
+      const P=corners(g).map(p=>toS(p[0],p[1]));poly(P);ctx.strokeStyle=bad?C.bad:C.good;ctx.lineWidth=2.5;ctx.stroke();
+      if(bad){ctx.fillStyle=C.bad;ctx.globalAlpha=.25;poly(P);ctx.fill();ctx.globalAlpha=1;}
+      label(g.w*M_PER_CELL+'×'+g.d*M_PER_CELL+' m'+(g.kind==='solid'?' · '+g.fl+' fl':'')+' · '+g.rot+'°',clamp(P[0][0],6,W-190),clamp(Math.min(...P.map(p=>p[1]))-(g.kind==='solid'?g.fl*FH*s:0)-32,6,H-30));}
+  }
+  if(tool==='obj'){const g=objGhost();if(g){const bad=conflictO(g);drawObj(g,bad?.35:.8);}}
+  if(tool==='trees'&&(cur||hov)){const w=cur||hov,t={x:Math.round(w.x*2)/2,y:Math.round(w.y*2)/2,k:treeKind==='mix'?'oak':treeKind,v:.5};drawTree(t,conflictT(t)?.35:.75);}
+  if(tool==='erase'&&(cur||hov)){const w=cur||hov,p=toS(w.x,w.y);ctx.strokeStyle=C.bad;ctx.lineWidth=2;ctx.beginPath();ctx.arc(p[0],p[1],16,0,7);ctx.stroke();}
+  if(tool==='area')drawAreaOverlay();
+  if(tool==='select'||tool==='erase')selOutline();
+  if(drag&&drag.mode==='move'&&drag.bad){ctx.fillStyle=C.bad;ctx.globalAlpha=.2;ctx.fillRect(0,0,W,H);ctx.globalAlpha=1;}
+  const len=5*s,x=16,y=H-18;ctx.strokeStyle=C.ink;ctx.lineWidth=2;ctx.globalAlpha=.7;ctx.beginPath();ctx.moveTo(x,y-5);ctx.lineTo(x,y);ctx.lineTo(x+len,y);ctx.lineTo(x+len,y-5);ctx.stroke();
+  ctx.font='400 12px '+C.fm;ctx.fillStyle=C.ink;ctx.fillText(5*M_PER_CELL+' m',x+len+8,y);ctx.globalAlpha=1;
+}
+function nextDot(w){
+  const f=snapFeature(w);if(f)return f;
+  if(areaPts.length&&areaLock){const e=halfEnd(areaPts[areaPts.length-1],w);return e;}
+  return [snapHalf(w.x),snapHalf(w.y)];}
+function drawAreaOverlay(){
+  const s=cam.s,w=cur||hov;
+  const col=areaKind==='bld'||areaKind==='zone'?C.accent:areaKind==='water'?'#2a9bd8':areaKind==='park'?'#4a9a45':'#c9a64a';
+  if(areaPts.length){
+    const P=areaPts.map(p=>toS(p[0],p[1]));let nd=null;
+    if(w&&areaMode==='dots'){nd=nextDot(w);}
+    const pts=nd?P.concat([toS(nd[0],nd[1])]):P;
+    if(pts.length>=3){poly(pts);ctx.fillStyle=col;ctx.globalAlpha=.25;ctx.fill();ctx.globalAlpha=1;}
+    poly(pts,false);ctx.strokeStyle=col;ctx.lineWidth=3;ctx.lineCap='round';ctx.lineJoin='round';ctx.stroke();
+    P.forEach((p,i)=>{ctx.beginPath();ctx.arc(p[0],p[1],i===0?10:6,0,7);ctx.fillStyle=i===0?'#fff':col;ctx.fill();ctx.strokeStyle=col;ctx.lineWidth=2.5;ctx.stroke();});
+    if(areaPts.length>=3&&nd&&nearFirst(w)){ctx.beginPath();ctx.arc(P[0][0],P[0][1],17,0,7);ctx.strokeStyle=C.good;ctx.lineWidth=3;ctx.stroke();label('Close shape',P[0][0]+22,P[0][1]-12);}
+    else if(nd){const a=areaPts[areaPts.length-1],len=Math.hypot(nd[0]-a[0],nd[1]-a[1])*M_PER_CELL;label(Math.round(len)+' m',clamp(toS(nd[0],nd[1])[0]+12,6,W-90),clamp(toS(nd[0],nd[1])[1]-34,6,H-30));}
+  }else if(w){
+    if(areaMode==='dots'){const nd=nextDot(w),p=toS(nd[0],nd[1]);ctx.fillStyle=col;ctx.globalAlpha=.8;ctx.beginPath();ctx.arc(p[0],p[1],7,0,7);ctx.fill();ctx.globalAlpha=1;}
+    else{const p=toS(w.x,w.y);ctx.strokeStyle=col;ctx.lineWidth=3;ctx.beginPath();ctx.arc(p[0],p[1],14,0,7);ctx.stroke();label('Tap an empty gap',p[0]+18,p[1]-34);}
+  }
+}
+function nearFirst(w){if(areaPts.length<3)return false;const f=toS(areaPts[0][0],areaPts[0][1]),p=toS(w.x,w.y);return Math.hypot(f[0]-p[0],f[1]-p[1])<30;}
+function snapFeature(w){
+  let best=null,bd=.4;
+  const test=(x,y)=>{const d=Math.hypot(x-w.x,y-w.y);if(d<bd){bd=d;best=[x,y];}};
+  for(const a of S.a.concat(S.z))for(const p of a.pts)test(p[0],p[1]);
+  for(const b of S.b)for(const p of corners(b))test(p[0],p[1]);
+  for(const r of S.r){test(r.a[0],r.a[1]);test(r.b[0],r.b[1]);}
+  for(const p of areaPts)test(p[0],p[1]);
+  return best;}
+
+let hatch=null,hatchKey='';
+const EDGE_STYLES=[['wall','wall','wall','wall','Walls'],['lake','lake','lake','lake','Lake'],['wall','wall','lake','lake','Mixed']];
+function edgeName(){const e=S.e;for(const st of EDGE_STYLES)if(st[0]===e.n&&st[1]===e.s&&st[2]===e.e&&st[3]===e.w)return st[4];return 'Custom';}
+function edgeHash(i,j){const v=Math.sin(i*127.1+j*311.7)*43758.5453;return v-Math.floor(v);}
+const EDGE_D=4;
+function drawEdges(){
+  const h=S.n/2,D=EDGE_D,bw=3,cols=['#b5654a','#cdb99a','#8a8d97','#b9bcc4','#9fb8d8','#d9c27a'];
+  const P4=(x0,y0,x1,y1)=>[[x0,y0],[x1,y0],[x1,y1],[x0,y1]].map(p=>toS(p[0],p[1]));
+  const sides={n:[-h-D,-h-D,h+D,-h],s:[-h-D,h,h+D,h+D],w:[-h-D,-h,-h,h],e:[h,-h,h+D,h]};
+  for(const k of 'nwes'){const [x0,y0,x1,y1]=sides[k];
+    if(S.e[k]==='lake'){
+      fillArea(P4(x0,y0,x1,y1),'water',1);
+      const t=.9;const sd={n:[x0,y1-t,x1,y1],s:[x0,y0,x1,y0+t],w:[x1-t,y0,x1,y1],e:[x0,y0,x0+t,y1]}[k];
+      fillArea(P4(sd[0],sd[1],sd[2],sd[3]),'sand',1);
+    }else{
+      ctx.fillStyle=C.ground;const g=P4(x0,y0,x1,y1);poly(g);ctx.fill();
+      const horiz=k==='n'||k==='s',len=horiz?x1-x0:y1-y0,cnt=Math.round(len/bw);
+      for(let i=0;i<cnt;i++){const sz=len/cnt,hh=edgeHash(i,k.charCodeAt(0)),fl=2+Math.floor(hh*9),ci=Math.floor(edgeHash(k.charCodeAt(0),i)*cols.length);
+        const q=horiz?[x0+i*sz+.15,y0+.15,x0+(i+1)*sz-.15,y1-.15]:[x0+.15,y0+i*sz+.15,x1-.15,y0+(i+1)*sz-.15];
+        const P=P4(q[0],q[1],q[2],q[3]);prism(P,fl*FH*cam.s,cols[ci],1,'rgba(0,0,0,.18)',1,fl);}
+    }}
+}
+function drawLimit(){
+  const h=S.n/2,a=toS(-h,-h),b=toS(h,h);
+  if(hatchKey!==C.gridM){const c=document.createElement('canvas');c.width=c.height=16;const g=c.getContext('2d');g.strokeStyle=C.gridM;g.lineWidth=2;g.beginPath();g.moveTo(-2,18);g.lineTo(18,-2);g.stroke();hatch=ctx.createPattern(c,'repeat');hatchKey=C.gridM;}
+  ctx.save();ctx.beginPath();ctx.rect(-5,-5,W+10,H+10);ctx.rect(a[0],a[1],b[0]-a[0],b[1]-a[1]);ctx.clip('evenodd');
+  ctx.globalAlpha=.8;ctx.fillStyle=C.ground;ctx.fillRect(0,0,W,H);ctx.globalAlpha=1;ctx.fillStyle=hatch;ctx.fillRect(0,0,W,H);ctx.restore();drawEdges();
+  ctx.strokeStyle=C.accent;ctx.lineWidth=3;ctx.lineJoin='miter';ctx.strokeRect(a[0],a[1],b[0]-a[0],b[1]-a[1]);
+  ctx.lineWidth=7;ctx.globalAlpha=.18;ctx.strokeRect(a[0],a[1],b[0]-a[0],b[1]-a[1]);ctx.globalAlpha=1;
+  ctx.lineWidth=5;const L=Math.min(28,(b[0]-a[0])/6);ctx.beginPath();
+  for(const [x,y,dx,dy] of [[a[0],a[1],1,1],[b[0],a[1],-1,1],[a[0],b[1],1,-1],[b[0],b[1],-1,-1]]){ctx.moveTo(x+dx*L,y);ctx.lineTo(x,y);ctx.lineTo(x,y+dy*L);}ctx.stroke();
+  const txt='CITY LIMIT · '+S.n*M_PER_CELL+' × '+S.n*M_PER_CELL+' m';
+  ctx.font='600 12px '+C.fm;const w=ctx.measureText(txt).width+14,tx=clamp(a[0],6,W-w-6),ty=clamp(a[1]-24,6,H-24);
+  if(a[1]-24>=0||true){ctx.fillStyle=C.accent;ctx.beginPath();ctx.roundRect?ctx.roundRect(tx,ty,w,20,5):ctx.rect(tx,ty,w,20);ctx.fill();ctx.fillStyle='#fff';ctx.fillText(txt,tx+7,ty+14);}
+}
+function draw(){
+  dirty=false;ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.fillStyle=C.ground;ctx.fillRect(0,0,W,H);
+  if(showGrid)drawGrid();
+  const grounds=S.b.filter(b=>b.kind!=='solid').map(b=>({k:b.kind,P:corners(b)})).concat(S.a.filter(a=>a.k!=='bld').map(a=>({k:a.k,P:a.pts})));
+  for(const k of ['sand','water','park'])for(const g of grounds)if(g.k===k)fillArea(g.P.map(p=>toS(p[0],p[1])),k,1);
+  drawZones();
+  drawRoads();
+  const solids=allShapes().filter(isSolid);
+  for(const b of solids)drawShadow(b);
+  const ents=solids.map(b=>({y:b.pts?centroid(b.pts)[1]:b.y,b})).concat(S.t.map(t=>({y:t.y,t})),S.o.map(o=>({y:o.y,o})));
+  ents.sort((a,b)=>a.y-b.y);
+  for(const e of ents){if(e.b)drawSolid(e.b,1);else if(e.t)drawTree(e.t,1);else drawObj(e.o,1);}
+  drawLimit();
+  drawOverlay();
+}
+function loop(){if(dirty)draw();requestAnimationFrame(loop);}
+
+/* ---------- void fill ---------- */
+function fillVoid(w){
+  const R=.5;let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+  const ext=(x,y)=>{x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y);};
+  x0=y0=-S.n/2;x1=y1=S.n/2;
+  const nx=Math.round((x1-x0)/R),ny=Math.round((y1-y0)/R);if(nx*ny>90000){toast('Zoom out less: the map is too big to fill');return null;}
+  const blk=new Uint8Array(nx*ny),idx=(i,j)=>j*nx+i;
+  const cell=(i,j)=>[x0+(i+.5)*R,y0+(j+.5)*R];
+  for(const r of S.r){const m=RT[r.t].w/2+.4,bx=bbox(pl(r));
+    for(let j=Math.max(0,Math.floor((bx[1]-m-y0)/R));j<Math.min(ny,Math.ceil((bx[3]+m-y0)/R));j++)for(let i=Math.max(0,Math.floor((bx[0]-m-x0)/R));i<Math.min(nx,Math.ceil((bx[2]+m-x0)/R));i++){
+      const c=cell(i,j);if(distSeg(r,c[0],c[1])<m)blk[idx(i,j)]=1;}}
+  for(const o of allShapes()){const k=kindOf(o);if(k==='sand')continue;const P=shapeOf(o),bx=bbox(P),m=k==='solid'?.25:0;
+    for(let j=Math.max(0,Math.floor((bx[1]-m-y0)/R));j<Math.min(ny,Math.ceil((bx[3]+m-y0)/R));j++)for(let i=Math.max(0,Math.floor((bx[0]-m-x0)/R));i<Math.min(nx,Math.ceil((bx[2]+m-x0)/R));i++){
+      const c=cell(i,j);if(distPoly(P,c[0],c[1])<=m)blk[idx(i,j)]=1;}}
+  for(let j=0;j<ny;j++)for(let i=0;i<nx;i++){const c=cell(i,j);if(Math.abs(c[0])>S.n/2-.5||Math.abs(c[1])>S.n/2-.5)blk[idx(i,j)]=1;}   /* keep a sidewalk-wide margin at the city limit */
+  const si=Math.floor((w.x-x0)/R),sj=Math.floor((w.y-y0)/R);
+  if(si<0||sj<0||si>=nx||sj>=ny||blk[idx(si,sj)]){toast('That spot is not empty');return null;}
+  const inR=new Uint8Array(nx*ny),q=[idx(si,sj)];inR[q[0]]=1;let open=false;
+  for(let h=0;h<q.length;h++){const c=q[h],i=c%nx,j=(c-i)/nx;
+    if(i===0||j===0||i===nx-1||j===ny-1){open=true;break;}
+    for(const [di,dj] of [[1,0],[-1,0],[0,1],[0,-1]]){const n=idx(i+di,j+dj);if(!blk[n]&&!inR[n]){inR[n]=1;q.push(n);}}}
+  if(open){toast('This gap is not enclosed. Close it with roads first.');return null;}
+  /* boundary edges, clockwise on screen, then chain them into loops */
+  const out=new Map(),key=(i,j)=>i+','+j,addE=(a,b)=>{const k=key(a[0],a[1]);(out.get(k)||out.set(k,[]).get(k)).push(b);};
+  for(const c of q){const i=c%nx,j=(c-i)/nx;
+    if(!inR[idx(i,j-1)])addE([i,j],[i+1,j]);
+    if(!inR[idx(i+1,j)])addE([i+1,j],[i+1,j+1]);
+    if(!inR[idx(i,j+1)])addE([i+1,j+1],[i,j+1]);
+    if(!inR[idx(i-1,j)])addE([i,j+1],[i,j]);}
+  let best=null,bestA=0;
+  for(const [k,list] of out){
+    while(list.length){const [si2,sj2]=k.split(',').map(Number);let cur=[si2,sj2],loop=[[si2,sj2]],guard=0;
+      let nxt=list.pop();
+      while(nxt&&guard++<20000){cur=nxt;if(cur[0]===si2&&cur[1]===sj2)break;loop.push(cur);const l=out.get(key(cur[0],cur[1]));nxt=l&&l.length?l.pop():null;}
+      const A=Math.abs(area(loop));if(A>bestA){bestA=A;best=loop;}}}
+  if(!best||best.length<3){toast('Could not outline that gap');return null;}
+  const wp=best.map(p=>[x0+p[0]*R,y0+p[1]*R]);
+  const clean=P=>{let ch=true;while(ch&&P.length>3){ch=false;for(let i=0;i<P.length;i++){const a=P[(i+P.length-1)%P.length],b=P[i],c=P[(i+1)%P.length];
+    if(Math.abs(orient(a,b,c))<1e-9||(Math.abs(a[0]-b[0])<1e-9&&Math.abs(a[1]-b[1])<1e-9)){P.splice(i,1);ch=true;break;}}}return P;};
+  const rdp=(P,eps)=>{if(P.length<3)return P;let md=0,mi=0;const a=P[0],b=P[P.length-1];
+    for(let i=1;i<P.length-1;i++){const d=Math.abs(orient(a,b,P[i]))/(Math.hypot(b[0]-a[0],b[1]-a[1])||1);if(d>md){md=d;mi=i;}}
+    if(md>eps)return rdp(P.slice(0,mi+1),eps).slice(0,-1).concat(rdp(P.slice(mi),eps));return [a,b];};
+  const raw=clean(wp.slice());
+  for(const eps of [.42,.3,.15]){
+    let P=raw.slice();let far=0,fi=0;for(let i=1;i<P.length;i++){const d=Math.hypot(P[i][0]-P[0][0],P[i][1]-P[0][1]);if(d>far){far=d;fi=i;}}
+    const a=rdp(P.slice(0,fi+1),eps),b=rdp(P.slice(fi).concat([P[0]]),eps);
+    let S2=a.slice(0,-1).concat(b.slice(0,-1)).map(p=>[Math.round(p[0]*2)/2,Math.round(p[1]*2)/2]);
+    S2=clean(S2);
+    if(S2.length>=3&&simplePoly(S2)&&Math.abs(area(S2))>=.5)return S2;}
+  return raw;}
+
+/* ---------- pointer handling ---------- */
+const ptrs=new Map();let drag=null,cur=null,pin=null,mainId=null;
+const snapHalf=v=>Math.round(v*2)/2;
+function pt(e){const r=cv.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top};}
+function isPanRole(e){return tool==='pan'||(e.pointerType==='touch'&&!fingerDraw)||e.button===1||e.button===2||spaceDown;}
+cv.addEventListener('contextmenu',e=>e.preventDefault());
+cv.addEventListener('pointerdown',e=>{
+  cv.setPointerCapture(e.pointerId);const p=pt(e);ptrs.set(e.pointerId,{...p,type:e.pointerType});
+  if(e.pointerType==='pen'&&!penSeen){penSeen=true;fingerDraw=false;syncBtns();toast('Pencil found. Fingers now pan and zoom.');}
+  if(ptrs.size>=2){cancelStroke();startPinch();return;}
+  mainId=e.pointerId;cur=toW(p.x,p.y);
+  if(isPanRole(e)){drag={mode:'pan',lx:p.x,ly:p.y};dirty=true;return;}
+  const w=cur;
+  if(tool==='road'&&roadCurve){
+    drag=curvePts.length?{mode:'curveN',px:p.x,py:p.y}:{mode:'curve0',start:[Math.round(w.x),Math.round(w.y)],px:p.x,py:p.y};
+  }else if(tool==='road'){
+    if(pending)drag={mode:'road2'};
+    else drag={mode:'road',start:[Math.round(w.x),Math.round(w.y)],px:p.x,py:p.y};
+  }else if(tool==='build'){
+    drag={mode:'place',start:{x:snapHalf(w.x),y:snapHalf(w.y)},rot:ghostRot,px:p.x,py:p.y,moved:false};
+  }else if(tool==='obj'){
+    drag={mode:'obj',start:{x:snapHalf(w.x),y:snapHalf(w.y)},rot:ghostRot,px:p.x,py:p.y,moved:false};
+  }else if(tool==='area'){
+    drag={mode:'area',px:p.x,py:p.y};
+  }else if(tool==='trees'){
+    drag={mode:'paint',prev:snap(),n:0,last:null};paintTree(w);
+  }else if(tool==='erase'){
+    drag={mode:'erase',prev:snap(),n:0};eraseAt(p.x,p.y);
+  }else if(tool==='select'){
+    if(sel&&sel.k==='r'){
+      for(const [i,q] of [sel.o.a,sel.o.b].concat(sel.o.c?[sel.o.c]:[]).entries()){const sp=toS(q[0],q[1]);
+        if(Math.hypot(sp[0]-p.x,sp[1]-p.y)<26){drag={mode:'endpt',i,prev:snap(),orig:JSON.parse(JSON.stringify(sel.o))};dirty=true;return;}}}
+    sel=pick(p.x,p.y,e.pointerType==='touch'?12:4);
+    if(sel){drag={mode:'move',prev:snap(),start:{x:w.x,y:w.y},orig:JSON.parse(JSON.stringify(sel.o)),bad:false,did:false};}
+    else drag=null;
+    renderStrip();
+  }
+  dirty=true;});
+
+cv.addEventListener('pointermove',e=>{
+  const p=pt(e);
+  if(!ptrs.has(e.pointerId)){hov=toW(p.x,p.y);cur=null;dirty=true;return;}
+  ptrs.set(e.pointerId,{...p,type:e.pointerType});
+  if(pin&&ptrs.size>=2){pinchMove();return;}
+  if(e.pointerId!==mainId||!drag)return;
+  const w=toW(p.x,p.y);cur=w;dirty=true;
+  switch(drag.mode){
+    case 'pan':cam.x-=(p.x-drag.lx)/cam.s;cam.y-=(p.y-drag.ly)/cam.s;drag.lx=p.x;drag.ly=p.y;break;
+    case 'place':case 'obj':{
+      const dx=w.x-drag.start.x,dy=w.y-drag.start.y;
+      if(Math.hypot(dx,dy)>.9){drag.rot=((Math.round(Math.atan2(dy,dx)/(Math.PI/4))*45)%360+360)%360;drag.moved=true;}break;}
+    case 'paint':paintTree(w);break;
+    case 'erase':eraseAt(p.x,p.y);break;
+    case 'move':{
+      const o=drag.orig,t=sel.o,ddx=w.x-drag.start.x,ddy=w.y-drag.start.y;
+      if(sel.k==='r'){const dx=Math.round(ddx),dy=Math.round(ddy);t.a=[o.a[0]+dx,o.a[1]+dy];t.b=[o.b[0]+dx,o.b[1]+dy];if(o.c)t.c=[o.c[0]+dx,o.c[1]+dy];}
+      else{const st=sel.k==='t'?.25:.5,dx=Math.round(ddx/st)*st,dy=Math.round(ddy/st)*st;
+        if(sel.k==='a'||sel.k==='z')t.pts=o.pts.map(q=>[q[0]+dx,q[1]+dy]);else{t.x=o.x+dx;t.y=o.y+dy;}}
+      drag.did=true;drag.bad=!!movedConflict();break;}
+    case 'endpt':{
+      const r=sel.o;
+      if(r.c){const q=[Math.round(w.x),Math.round(w.y)];if(drag.i===0)r.a=q;else if(drag.i===1)r.b=q;else r.c=q;}
+      else{const fixed=drag.i===0?drag.orig.b:drag.orig.a,e2=roadEnd(fixed,w);
+        if(e2){if(drag.i===0)r.a=[e2.x,e2.y];else r.b=[e2.x,e2.y];}}
+      break;}
+  }});
+function selShape(){return sel.k==='b'||sel.k==='a';}
+function movedConflict(){
+  if(selShape())return conflictShape(shapeOf(sel.o),kindOf(sel.o),sel.o);
+  if(sel.k==='r')return conflictR(sel.o);
+  if(sel.k==='t')return conflictT(sel.o,sel.o);
+  if(sel.k==='o')return conflictO(sel.o);return null;}
+function endPtr(e){
+  const had=ptrs.has(e.pointerId);ptrs.delete(e.pointerId);if(!had)return;
+  if(pin){if(ptrs.size<2)pin=null;if(e.pointerId===mainId||ptrs.size===0)drag=null;return;}
+  if(e.pointerId!==mainId||!drag){return;}
+  const p=pt(e),w=toW(p.x,p.y),d=drag;drag=null;cur=null;
+  if(e.type==='pointercancel'){dirty=true;return;}
+  switch(d.mode){
+    case 'road':{
+      const e2=roadEnd(d.start,w);
+      if(e2&&Math.hypot(p.x-d.px,p.y-d.py)>14)addRoad(d.start,[e2.x,e2.y]);
+      else{pending=d.start;renderStrip();toast('Tap the end point. It snaps to 45° steps.');}
+      break;}
+    case 'curve0':{
+      if(Math.hypot(p.x-d.px,p.y-d.py)>14){const c=roadEnd(d.start,w);curvePts=c?[d.start,[c.x,c.y]]:[d.start];}
+      else curvePts=[d.start];
+      renderStrip();toast(curvePts.length>1?'Tap the end point.':'Tap the bend point. It snaps to 45°.');break;}
+    case 'curveN':{
+      const last=curvePts[curvePts.length-1],e2=roadEnd(last,w);
+      if(!e2)break;curvePts.push([e2.x,e2.y]);
+      if(curvePts.length===3){const [a,c,b]=curvePts;addCurve(a,c,b);curvePts=[];}
+      else toast('Tap the end point.');
+      renderStrip();break;}
+    case 'road2':{
+      const e2=roadEnd(pending,w);
+      if(e2){if(addRoad(pending,[e2.x,e2.y]))pending=[e2.x,e2.y];}
+      else pending=null;
+      renderStrip();break;}
+    case 'place':{
+      const z=ghostSz[buildType]||variant(buildType,ghostVar[buildType]||0),T=TYPES[buildType];
+      const g={type:buildType,kind:T.kind,v:ghostVar[buildType]||0,seed:newSeed(),x:d.start.x,y:d.start.y,rot:d.rot,w:z.w,d:z.d,fl:T.kind==='solid'?z.fl:0};
+      if(d.moved)ghostRot=d.rot;
+      const bad=conflictB(g);if(bad){toast(bad);break;}
+      const prev=snap();S.b.push(g);push(prev);changed();break;}
+    case 'obj':{
+      const g={k:objKind,x:d.start.x,y:d.start.y,rot:d.rot,c:objCol};
+      if(d.moved)ghostRot=d.rot;
+      const bad=conflictO(g);if(bad){toast(bad);break;}
+      const prev=snap();
+      if(g.k==='start')S.o=S.o.filter(o=>o.k!=='start');
+      S.o.push(g);push(prev);changed();break;}
+    case 'area':{
+      if(Math.hypot(p.x-d.px,p.y-d.py)>16)break;
+      if(areaMode==='fill'){const P=fillVoid(w);if(P)commitArea(P);break;}
+      if(areaPts.length>=3&&nearFirst(w)){closeArea();break;}
+      const nd=nextDot(w);if(!nd)break;
+      if(areaPts.some(q=>q[0]===nd[0]&&q[1]===nd[1]))break;
+      areaPts.push(nd);renderStrip();break;}
+    case 'paint':case 'erase':if(d.n){push(d.prev);changed();}break;
+    case 'move':{
+      if(d.did){if(movedConflict()){restoreSel(d.orig);toast('Cannot drop there');dirty=true;}
+        else if(JSON.stringify(sel.o)!==JSON.stringify(d.orig)){push(d.prev);changed();}}
+      break;}
+    case 'endpt':{
+      const bad=conflictR(sel.o),same=JSON.stringify(sel.o)===JSON.stringify(d.orig);
+      if(bad){restoreSel(d.orig);toast(bad);}else if(!same){push(d.prev);changed();}
+      break;}
+  }
+  dirty=true;}
+function restoreSel(orig){for(const k of Object.keys(sel.o))delete sel.o[k];Object.assign(sel.o,JSON.parse(JSON.stringify(orig)));}
+cv.addEventListener('pointerup',endPtr);cv.addEventListener('pointercancel',endPtr);
+cv.addEventListener('pointerleave',e=>{if(!ptrs.has(e.pointerId)){hov=null;dirty=true;}});
+cv.addEventListener('wheel',e=>{e.preventDefault();const p=pt(e),w=toW(p.x,p.y);
+  cam.s=clamp(cam.s*Math.exp(-e.deltaY*(e.ctrlKey?.01:.0015)),8,90);cam.x=w.x-(p.x-W/2)/cam.s;cam.y=w.y-(p.y-H/2)/cam.s;dirty=true;},{passive:false});
+function cancelStroke(){
+  if(drag&&sel&&drag.orig&&(drag.mode==='move'||drag.mode==='endpt'))restoreSel(drag.orig);
+  if(drag&&(drag.mode==='paint'||drag.mode==='erase')&&drag.n){restore(drag.prev);changed();}
+  drag=null;cur=null;}
+function startPinch(){
+  const [a,b]=[...ptrs.values()],cx=(a.x+b.x)/2,cy=(a.y+b.y)/2;
+  pin={d:Math.hypot(a.x-b.x,a.y-b.y)||1,s:cam.s,w:toW(cx,cy)};}
+function pinchMove(){
+  const [a,b]=[...ptrs.values()],cx=(a.x+b.x)/2,cy=(a.y+b.y)/2,d=Math.hypot(a.x-b.x,a.y-b.y)||1;
+  cam.s=clamp(pin.s*d/pin.d,8,90);cam.x=pin.w.x-(cx-W/2)/cam.s;cam.y=pin.w.y-(cy-H/2)/cam.s;dirty=true;}
+
+/* ---------- actions ---------- */
+function addRoad(a,b){
+  const r={a:a.slice(),b:b.slice(),t:roadType},bad=conflictR(r);
+  if(bad){toast(bad);return false;}
+  if(S.r.some(o=>(o.a[0]===a[0]&&o.a[1]===a[1]&&o.b[0]===b[0]&&o.b[1]===b[1])||(o.b[0]===a[0]&&o.b[1]===a[1]&&o.a[0]===b[0]&&o.a[1]===b[1])&&o.t===r.t))return false;
+  const prev=snap();S.r.push(r);S.t=S.t.filter(t=>distSeg(r,t.x,t.y)>=RT[r.t].w/2+.15);push(prev);changed();return true;}
+function addCurve(a,c,b){
+  if(Math.abs(orient(a,c,b))<1e-6){toast('The three points are in a line. Move the bend point.');return false;}
+  const r={a:a.slice(),c:c.slice(),b:b.slice(),t:roadType},bad=conflictR(r);
+  if(bad){toast(bad);return false;}
+  const prev=snap();S.r.push(r);S.t=S.t.filter(t=>distSeg(r,t.x,t.y)>=RT[r.t].w/2+.15);push(prev);changed();return true;}
+function paintTree(w){
+  const x=Math.round(w.x*2)/2,y=Math.round(w.y*2)/2;
+  if(drag.last&&Math.hypot(drag.last[0]-x,drag.last[1]-y)<.8)return;
+  const t={x,y,k:treeKind==='mix'?(Math.random()<.5?'oak':'pine'):treeKind,v:Math.random()};
+  if(conflictT(t))return;S.t.push(t);drag.last=[x,y];drag.n++;rebuildNodes();dirty=true;}
+function eraseAt(px,py){
+  const h=pick(px,py,10);if(!h)return;
+  const L={t:S.t,r:S.r,o:S.o,a:S.a,b:S.b,z:S.z}[h.k];L.splice(L.indexOf(h.o),1);drag.n++;rebuildNodes();dirty=true;}
+function commitArea(P){
+  const z=ghostSz[buildType]||variant(buildType,ghostVar[buildType]||0);
+  const a={k:areaKind,pts:P.map(p=>[Math.round(p[0]*100)/100,Math.round(p[1]*100)/100])};
+  if(areaKind==='bld'){a.type=buildType;if(!SOLIDS.includes(a.type))a.type='brick';a.v=ghostVar[a.type]||0;a.fl=(areaFl!==null?areaFl:variant(a.type,a.v).fl);a.seed=newSeed();}
+  if(areaKind==='zone'){
+    if(P.some(p=>outside(p[0],p[1]))){toast('Outside the city limit');return false;}
+    const z={pts:a.pts,p:zonePreset},prev=snap();S.z.push(z);areaPts=[];push(prev);changed();
+    setTool('select');sel={k:'z',o:z};renderStrip();dirty=true;toast('District drawn. Pick a style and tap Generate content');return true;}
+  const bad=conflictShape(P,areaKind==='bld'?'solid':areaKind,null);
+  if(bad){toast(bad);return false;}
+  const prev=snap();S.a.push(a);areaPts=[];push(prev);changed();return true;}
+/* ---------- district: draw an area, then generate roads, buildings, trees and props inside it ---------- */
+function drawZones(){
+  for(const z of S.z){const P=z.pts.map(p=>toS(p[0],p[1]));
+    ctx.globalAlpha=.1;ctx.fillStyle=C.accent;poly(P);ctx.fill();ctx.globalAlpha=.55;ctx.strokeStyle=C.accent;ctx.lineWidth=1.5;ctx.setLineDash([6,5]);poly(P);ctx.stroke();ctx.setLineDash([]);
+    const c=centroid(P);ctx.globalAlpha=.8;ctx.fillStyle=C.accent;ctx.font='600 11px '+C.fm;const t=ZP[z.p||'homes'].n.toUpperCase();ctx.fillText(t,c[0]-ctx.measureText(t).width/2,c[1]+4);ctx.globalAlpha=1;}
+}
+function genZone(z){
+  const P=z.pts,pre=ZP[z.p||'homes'],bb=bbox(P),rd=rnd(newSeed()),prev=snap();
+  const ok=(x,y,m)=>inPoly([x,y],P)&&distEdges([x,y],P)>m;
+  let nR=0,nB=0,nT=0,nO=0;const roads=[];
+  if(pre.grid){
+    const x0=Math.ceil(bb[0]),x1=Math.floor(bb[2]),y0=Math.ceil(bb[1]),y1=Math.floor(bb[3]),sp=pre.grid;
+    const run=(fix,lo,hi,horiz)=>{let st=null;
+      for(let v=lo;v<=hi+1;v++){const inn=v<=hi&&(horiz?ok(v,fix,.8):ok(fix,v,.8));
+        if(inn&&st===null)st=v;
+        if(!inn&&st!==null){const e=v-1;if(e-st>=3){const r=horiz?{a:[st,fix],b:[e,fix],t:pre.road}:{a:[fix,st],b:[fix,e],t:pre.road};
+            if(!conflictR(r)){S.r.push(r);roads.push(r);nR++;}}st=null;}}};
+    for(let y=y0+1;y<=y1;y+=sp)run(y,x0,x1,true);
+    for(let x=x0+1;x<=x1;x+=sp)run(x,y0,y1,false);
+  }
+  const A=Math.abs(area(P));
+  if(pre.types.length){
+    const max=Math.floor(A*pre.dens/4);
+    for(let i=0;i<900&&nB<max;i++){
+      const x=Math.round((bb[0]+rd()*(bb[2]-bb[0]))*2)/2,y=Math.round((bb[1]+rd()*(bb[3]-bb[1]))*2)/2;
+      const type=pre.types[Math.floor(rd()*pre.types.length)],b=mkB(type,Math.floor(rd()*15),x,y,rd()<.2?90:0);
+      if(!corners(b).every(p=>insideStrict(p,P)))continue;
+      if(conflictB(b))continue;
+      S.b.push(b);nB++;}
+  }
+  const tmax=Math.floor(A*pre.trees);
+  for(let i=0;i<tmax*6&&nT<tmax;i++){
+    const t={x:Math.round((bb[0]+rd()*(bb[2]-bb[0]))*2)/2,y:Math.round((bb[1]+rd()*(bb[3]-bb[1]))*2)/2,k:rd()<.5?'oak':'pine',v:rd()};
+    if(!ok(t.x,t.y,.3)||conflictT(t))continue;S.t.push(t);nT++;}
+  for(const r of roads){const dx=r.b[0]-r.a[0],dy=r.b[1]-r.a[1],L=Math.hypot(dx,dy),ux=dx/L,uy=dy/L,off=RT[r.t].w/2+.35;
+    for(let d=2;d<L-1;d+=4){const x=r.a[0]+ux*d,y=r.a[1]+uy*d,o={k:'lamp',x:x-uy*off*(Math.floor(d/4)%2?1:-1),y:y+ux*off*(Math.floor(d/4)%2?1:-1),rot:0,c:0};
+      if(!conflictO(o)){S.o.push(o);nO++;}}
+    if(pre.cars&&rd()<.7&&dy===0){const o={k:rd()<.5?'sedan':'sports',x:r.a[0]+L*rd(),y:r.a[1]+.4,rot:0,c:Math.floor(rd()*3)};if(!conflictO(o)){S.o.push(o);nO++;}}}
+  if(z.p==='green'){for(let i=0;i<4;i++){const o={k:'ped',x:bb[0]+rd()*(bb[2]-bb[0]),y:bb[1]+rd()*(bb[3]-bb[1]),rot:0,c:Math.floor(rd()*8)};if(ok(o.x,o.y,.5)&&!conflictO(o)){S.o.push(o);nO++;}}}
+  if(!nR&&!nB&&!nT&&!nO){toast('No room left in this district');return;}
+  push(prev);changed();
+  toast('Generated '+[nB&&nB+' buildings',nR&&nR+' roads',nT&&nT+' trees',nO&&nO+' props'].filter(Boolean).join(', ')+'. Step back to try another mix');
+}
+
+function closeArea(){
+  if(areaPts.length<3){toast('Place at least 3 dots');return;}
+  if(!simplePoly(areaPts)){toast('The outline crosses itself');return;}
+  if(Math.abs(area(areaPts))<.4){toast('That shape is too small');return;}
+  commitArea(areaPts);}
+let areaFl=null,zonePreset='homes';
+function mutate(fn){
+  if(!sel)return;const prev=snap(),o=JSON.parse(JSON.stringify(sel.o));fn(sel.o);
+  const bad=selShape()?conflictShape(shapeOf(sel.o),kindOf(sel.o),sel.o):sel.k==='r'?conflictR(sel.o):sel.k==='o'?conflictO(sel.o):null;
+  if(bad){restoreSel(o);toast(bad);return;}
+  push(prev);changed();}
+function del(){if(!sel)return;const prev=snap(),L={t:S.t,r:S.r,o:S.o,a:S.a,b:S.b,z:S.z}[sel.k];L.splice(L.indexOf(sel.o),1);sel=null;push(prev);changed();}
+function dup(){if(!sel||sel.k!=='b')return;const prev=snap();
+  for(const [dx,dy] of [[sel.o.w+.5,0],[0,sel.o.d+.5],[-sel.o.w-.5,0],[0,-sel.o.d-.5]]){
+    const n={...sel.o,x:sel.o.x+dx,y:sel.o.y+dy,seed:newSeed()};if(!conflictB(n)){S.b.push(n);sel={k:'b',o:n};push(prev);changed();return;}}
+  toast('No room next to it');}
+
+/* ---------- UI ---------- */
+let toastT=0;
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2200);}
+const ICON={
+  select:'<path d="M6 3l12 8-5.2 1.4L15.5 19l-2.6 1-2.7-6.5L6 17z"/>',
+  road:'<path d="M9 3L5 21M15 3l4 18M12 5v3M12 11v3M12 17v3"/>',
+  build:'<path d="M5 21V9l6-4v16M11 9l8 3v9M3 21h18M8 12h0M8 16h0M15 15h0M15 18h0"/>',
+  area:'<path d="M5 8l5-4 8 3 2 8-6 5-8-2z"/><circle cx="5" cy="8" r="1.2"/><circle cx="10" cy="4" r="1.2"/><circle cx="18" cy="7" r="1.2"/><circle cx="20" cy="15" r="1.2"/><circle cx="14" cy="20" r="1.2"/><circle cx="6" cy="18" r="1.2"/>',
+  obj:'<path d="M5 15l2-5h10l2 5v4H5zM5 15h14M8 19v1.5M16 19v1.5M12 3v3"/>',
+  trees:'<path d="M12 3a5 5 0 0 1 3.5 8.6A4.5 4.5 0 0 1 12 17a4.5 4.5 0 0 1-3.5-5.4A5 5 0 0 1 12 3zM12 17v4"/>',
+  erase:'<path d="M4 15l8-9 8 5-6 8H8zM12 19h9"/>',
+  pan:'<path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/>'};
+const TOOLS=[['select','Select'],['road','Roads'],['build','Build'],['area','Shapes'],['obj','Props'],['trees','Trees'],['erase','Erase'],['pan','Move']];
+function renderRail(){$('#rail').innerHTML=TOOLS.map(([k,n])=>`<button class="tool${tool===k?' on':''}" data-tool="${k}"><svg viewBox="0 0 24 24">${ICON[k]}</svg>${n}</button>`).join('');}
+function stepper(label,val,act){return `<div class="step"><button data-act="${act}-" aria-label="${label} less">−</button><span><em>${label}</em>${val}</span><button data-act="${act}+" aria-label="${label} more">+</button></div>`;}
+const row=h=>`<div class="srow">${h}</div>`;
+function variantRow(type,cur,attr){
+  return row(`<span class="lab">Style</span>`+Array.from({length:15},(_,v)=>{const z=variant(type,v);
+    return `<button class="chip vchip${cur===v?' on':''}" data-${attr}="${v}" title="${z.w*M_PER_CELL}×${z.d*M_PER_CELL} m, ${z.fl} floors"><i style="background:${mix(VCOL[v],TYPES[type].tint,.35)}"></i>${v+1}</button>`;}).join(''));}
+function typeRow(cur,attr){return row(SOLIDS.map(k=>`<button class="chip${cur===k?' on':''}" data-${attr}="${k}"><i style="background:${TYPES[k].tint}"></i>${TYPES[k].n}</button>`).join(''));}
+function renderStrip(){
+  const el=$('#strip');let h='';
+  if(tool==='road'){
+    h+=row(Object.entries(RT).map(([k,v])=>`<button class="chip${roadType===k?' on':''}" data-road="${k}">${v.n}<small>${v.m}</small></button>`).join('')+
+      `<div class="vr"></div><button class="chip${!roadCurve?' on':''}" data-rmode="s">Straight</button><button class="chip${roadCurve?' on':''}" data-rmode="c">Curve</button>`);
+    h+=row(roadCurve?`<span class="hint">${curvePts.length===0?'Curve: tap the start, then the bend, then the end. Every point locks to the grid dots.':curvePts.length===1?'Tap the bend point. It locks to 45° from the start.':'Tap the end point. It locks to 45° from the bend.'}</span>`+(curvePts.length?`<button class="chip bad" data-act="ccancel">Cancel</button>`:''):
+      `<span class="hint">${pending?'Tap the next point. Tap Done to finish.':'Drag, or tap two points. Roads lock to the grid dots and to 45°.'}</span>`+(pending?`<button class="chip act" data-act="done">Done</button>`:''));
+  }else if(tool==='build'){
+    const gv=ghostVar[buildType]||0,z=ghostSz[buildType]||variant(buildType,gv),T=TYPES[buildType];
+    h+=row(Object.entries(TYPES).map(([k,v])=>`<button class="chip${buildType===k?' on':''}" data-build="${k}"><i style="background:${v.tint}"></i>${v.n}</button>`).join(''));
+    if(T.kind==='solid')h+=variantRow(buildType,gv,'bv');
+    h+=row(stepper('Width',z.w*M_PER_CELL+' m','bw')+stepper('Depth',z.d*M_PER_CELL+' m','bd')+(T.kind==='solid'?stepper('Floors',z.fl,'bf'):'')+
+      `<button class="chip" data-act="grot">Rotate 45°<small>${ghostRot}°</small></button><span class="hint">Tap to place. Drag to set the angle.</span>`);
+  }else if(tool==='area'){
+    h+=row(AREAS.map(([k,n])=>`<button class="chip${areaKind===k?' on':''}" data-area="${k}"><i style="background:${k==='zone'?'#ff9a6b':k==='bld'?'#c9b79c':k==='water'?'#7fb6d4':k==='park'?'#8fbf6e':'#e6dbb0'}"></i>${n}</button>`).join('')+
+      `<div class="vr"></div><button class="chip${areaMode==='dots'?' on':''}" data-amode="dots">Click dots</button><button class="chip${areaMode==='fill'?' on':''}" data-amode="fill">Fill a gap</button>`+
+      `<button class="chip${areaLock?' on':''}" data-act="alock">45° lock</button>`);
+    if(areaKind==='bld'){
+      const bt=SOLIDS.includes(buildType)?buildType:'brick',gv=ghostVar[bt]||0;
+      h+=typeRow(bt,'abt');h+=variantRow(bt,gv,'bv');
+      h+=row(stepper('Floors',areaFl!==null?areaFl:variant(bt,gv).fl,'af')+`<button class="chip${areaFl===null?' on':''}" data-act="afauto">Style floors</button>`);
+    }
+    const hint=(areaMode==='dots'?(areaPts.length?`<span class="hint">${areaPts.length} dot${areaPts.length>1?'s':''}. Tap the first dot to close.</span><button class="chip act" data-act="aclose"${areaPts.length<3?' disabled':''}>Close shape</button><button class="chip" data-act="aundo">Undo dot</button><button class="chip bad" data-act="acancel">Cancel</button>`:`<span class="hint">Tap dots around the shape. Tap the first dot again to close it.</span>`):`<span class="hint">Tap inside a gap between roads. The shape fills it.</span>`);
+    if(areaKind==='bld'){h=h.replace(/<\/div>$/,hint+'</div>');}else h+=row(hint);
+  }else if(tool==='obj'){
+    h+=row(OBJS.map(([k,n])=>`<button class="chip${objKind===k?' on':''}" data-obj="${k}">${n}</button>`).join(''));
+    const cc=CAR[objKind]?CAR[objKind].cols:null;
+    h+=row((cc&&cc.length>1?`<span class="lab">Colour</span>`+cc.map((c,i)=>`<button class="chip vchip${objCol%cc.length===i?' on':''}" data-ocol="${i}"><i style="background:${c}"></i></button>`).join(''):'')+
+      (objKind==='ped'?`<span class="lab">Shirt</span>`+[0,1,2,3,4,5,8,10].map(i=>`<button class="chip vchip${objCol===i?' on':''}" data-ocol="${i}"><i style="background:${VCOL[i]}"></i></button>`).join(''):'')+
+      `<button class="chip" data-act="grot">Rotate 45°<small>${ghostRot}°</small></button><span class="hint">${objKind==='start'?'Only one start. It moves.':'Tap to place. Drag to aim.'}</span>`);
+  }else if(tool==='trees'){
+    h+=row([['oak','Round'],['pine','Pine'],['mix','Mixed']].map(([k,n])=>`<button class="chip${treeKind===k?' on':''}" data-tree="${k}">${n}</button>`).join('')+`<span class="hint">Tap or drag to plant.</span>`);
+  }else if(tool==='erase'){h+=row(`<span class="hint">Drag over anything to remove it. Undo brings it back.</span>`);
+  }else if(tool==='pan'){h+=row(`<span class="hint">Drag to move the map. Pinch or use +/− to zoom.</span>`);
+  }else{
+    if(!sel)h+=row(`<span class="hint">Tap something to edit it. Drag to move it.</span>`);
+    else if(sel.k==='b'){const b=sel.o,T=TYPES[b.type];
+      if(b.kind==='solid')h+=typeRow(b.type,'stype')+variantRow(b.type,b.v,'sv');
+      h+=row(`<span class="lab">${T.n}</span>`+stepper('Width',b.w*M_PER_CELL+' m','sw')+stepper('Depth',b.d*M_PER_CELL+' m','sd')+(b.kind==='solid'?stepper('Floors',b.fl,'sf'):'')+
+        `<button class="chip" data-act="srl">⟲ 45°</button><button class="chip" data-act="srr">⟳ 45°</button><button class="chip" data-act="sdup">Copy</button><button class="chip bad" data-act="sdel">Delete</button>`);
+    }else if(sel.k==='a'){const a=sel.o;
+      if(a.k==='bld')h+=typeRow(a.type,'stype')+variantRow(a.type,a.v||0,'sv');
+      h+=row(`<span class="lab">${a.k==='bld'?TYPES[a.type].n+' shape':AREAS.find(x=>x[0]===a.k)[1]}</span>`+(a.k==='bld'?stepper('Floors',a.fl,'sf'):'')+`<span class="hint">${Math.round(Math.abs(area(a.pts))*M_PER_CELL*M_PER_CELL)} m²</span><button class="chip bad" data-act="sdel">Delete</button>`);
+    }else if(sel.k==='z'){const z=sel.o;
+      h+=row(`<span class="lab">District</span>`+Object.entries(ZP).map(([k,v])=>`<button class="chip${(z.p||'homes')===k?' on':''}" data-zp="${k}">${v.n}</button>`).join('')+
+        `<button class="chip act" data-act="zgen">Generate content</button><button class="chip bad" data-act="sdel">Delete</button>`);
+    }else if(sel.k==='r'){
+      h+=row(Object.entries(RT).map(([k,v])=>`<button class="chip${sel.o.t===k?' on':''}" data-rt="${k}">${v.n}<small>${v.m}</small></button>`).join('')+`<span class="hint">Drag the dots to reshape.</span><button class="chip bad" data-act="sdel">Delete</button>`);
+    }else if(sel.k==='o'){const o=sel.o,cc=CAR[o.k]?CAR[o.k].cols:null;
+      h+=row(`<span class="lab">${OBJS.find(x=>x[0]===o.k)[1]}</span>`+(cc&&cc.length>1?cc.map((c,i)=>`<button class="chip vchip${o.c%cc.length===i?' on':''}" data-socol="${i}"><i style="background:${c}"></i></button>`).join(''):'')+
+        `<button class="chip" data-act="srl">⟲ 45°</button><button class="chip" data-act="srr">⟳ 45°</button>`+(o.k==='start'?'':`<button class="chip bad" data-act="sdel">Delete</button>`));
+    }else h+=row(`<span class="lab">Tree</span><button class="chip bad" data-act="sdel">Delete</button>`);
+  }
+  el.innerHTML=h;}
+function syncBtns(){
+  limitLabel();
+  $('#bUndo').disabled=!undoS.length;$('#bRedo').disabled=!redoS.length;
+  $('#bFinger').innerHTML=penSeen?'Pencil <b>draws</b> · fingers '+(fingerDraw?'<b>draw</b>':'<b>pan</b>'):'Finger <b>'+(fingerDraw?'draws':'pans')+'</b>';
+  $('#bGrid').classList.toggle('on',showGrid);renderRail();}
+function stats(){
+  let res=0,job=0,n=0;
+  for(const b of allShapes()){if(kindOf(b)!=='solid')continue;n++;const a=(b.pts?Math.abs(area(b.pts)):b.w*b.d)*b.fl;
+    if(b.type==='brick'||b.type==='apartment')res+=a*1.6;else if(b.type==='glass'||b.type==='deco'||b.type==='office'){res+=a*.6;job+=a*1.4;}else if(b.type==='shop')job+=a*3;else job+=a*2;}
+  let km=0;for(const r of S.r)km+=roadLen(r)*M_PER_CELL/1000;
+  $('#hud').innerHTML=`<span>Buildings <b>${n}</b></span><span>Residents <b>${Math.round(res).toLocaleString()}</b></span><span>Jobs <b>${Math.round(job).toLocaleString()}</b></span><span>Roads <b>${km.toFixed(2)} km</b></span>`;}
+function setTool(t){tool=t;pending=null;curvePts=[];areaPts=[];if(t!=='select')sel=null;hov=null;cur=null;drag=null;renderRail();renderStrip();dirty=true;}
+
+function setBuildVar(type,v){ghostVar[type]=v;delete ghostSz[type];}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;
+  const d=b.dataset;
+  if(d.tool)return setTool(d.tool);
+  if(d.road){roadType=d.road;renderStrip();dirty=true;return;}
+  if(d.rmode){roadCurve=d.rmode==='c';pending=null;curvePts=[];renderStrip();dirty=true;return;}
+  if(d.rt){mutate(r=>{r.t=d.rt;});return;}
+  if(d.build){buildType=d.build;renderStrip();dirty=true;return;}
+  if(d.bv!==undefined){const v=+d.bv,t=tool==='area'?(SOLIDS.includes(buildType)?buildType:'brick'):buildType;setBuildVar(t,v);if(tool==='area'){buildType=t;areaFl=null;}renderStrip();dirty=true;return;}
+  if(d.abt){buildType=d.abt;areaFl=null;renderStrip();dirty=true;return;}
+  if(d.zp&&sel&&sel.k==='z'){const prev=snap();sel.o.p=d.zp;zonePreset=d.zp;push(prev);save();renderStrip();dirty=true;return;}
+  if(d.area){areaKind=d.area;areaPts=[];renderStrip();dirty=true;return;}
+  if(d.amode){areaMode=d.amode;areaPts=[];renderStrip();dirty=true;return;}
+  if(d.obj){objKind=d.obj;objCol=0;renderStrip();dirty=true;return;}
+  if(d.ocol!==undefined){objCol=+d.ocol;renderStrip();dirty=true;return;}
+  if(d.socol!==undefined){mutate(o=>{o.c=+d.socol;});return;}
+  if(d.tree){treeKind=d.tree;renderStrip();return;}
+  if(d.sv!==undefined){mutate(o=>{o.v=+d.sv;const z=variant(o.type,o.v);if(o.pts){o.fl=z.fl;}else{o.w=z.w;o.d=z.d;o.fl=z.fl;}});return;}
+  if(d.stype){mutate(o=>{o.type=d.stype;const z=variant(o.type,o.v||0);if(o.pts){o.fl=z.fl;}else{o.w=z.w;o.d=z.d;o.fl=z.fl;}});return;}
+  const a=d.act;if(!a)return;
+  const clampSz=v=>clamp(v,1,14),sg=a[a.length-1]==='+'?1:-1;
+  if(a==='done'){pending=null;renderStrip();dirty=true;}
+  else if(a==='ccancel'){curvePts=[];renderStrip();dirty=true;}
+  else if(a==='grot'){ghostRot=(ghostRot+45)%360;renderStrip();dirty=true;}
+  else if(a==='alock'){areaLock=!areaLock;renderStrip();}
+  else if(a==='aclose')closeArea();
+  else if(a==='aundo'){areaPts.pop();renderStrip();dirty=true;}
+  else if(a==='acancel'){areaPts=[];renderStrip();dirty=true;}
+  else if(a==='afauto'){areaFl=null;renderStrip();}
+  else if(a==='af+'||a==='af-'){const bt=SOLIDS.includes(buildType)?buildType:'brick',cur=areaFl!==null?areaFl:variant(bt,ghostVar[bt]||0).fl;areaFl=clamp(cur+sg,1,TYPES[bt].cap);renderStrip();}
+  else if(a==='bw+'||a==='bw-'||a==='bd+'||a==='bd-'||a==='bf+'||a==='bf-'){
+    const z=ghostSz[buildType]||(ghostSz[buildType]={...variant(buildType,ghostVar[buildType]||0)});
+    if(a[1]==='w')z.w=clampSz(z.w+sg);else if(a[1]==='d')z.d=clampSz(z.d+sg);else z.fl=clamp(z.fl+sg,1,TYPES[buildType].cap||40);renderStrip();dirty=true;}
+  else if(a==='sw+'||a==='sw-')mutate(o=>{o.w=clampSz(o.w+sg);});
+  else if(a==='sd+'||a==='sd-')mutate(o=>{o.d=clampSz(o.d+sg);});
+  else if(a==='sf+'||a==='sf-')mutate(o=>{o.fl=clamp(o.fl+sg,1,TYPES[o.type].cap||40);});
+  else if(a==='srl')mutate(o=>{o.rot=(o.rot+315)%360;});
+  else if(a==='srr')mutate(o=>{o.rot=(o.rot+45)%360;});
+  else if(a==='sdel')del();
+  else if(a==='zgen'&&sel&&sel.k==='z')genZone(sel.o);
+  else if(a==='sdup')dup();});
+$('#bUndo').onclick=undo;$('#bRedo').onclick=redo;
+$('#bGrid').onclick=()=>{showGrid=!showGrid;syncBtns();dirty=true;};
+$('#bFinger').onclick=()=>{fingerDraw=!fingerDraw;syncBtns();toast(fingerDraw?'Fingers draw':'Fingers pan and zoom');};
+$('#bIn').onclick=()=>{cam.s=clamp(cam.s*1.25,8,90);dirty=true;};
+$('#bOut').onclick=()=>{cam.s=clamp(cam.s/1.25,8,90);dirty=true;};
+$('#bFit').onclick=fit;
+function limitLabel(){$('#bLimit').innerHTML='Limit <b>'+S.n*M_PER_CELL+' m</b>';$('#bEdge').innerHTML='Edge <b>'+edgeName()+'</b>';}
+$('#bEdge').onclick=()=>{let i=EDGE_STYLES.findIndex(st=>st[4]===edgeName());const st=EDGE_STYLES[(i+1)%EDGE_STYLES.length],prev=snap();S.e={n:st[0],s:st[1],e:st[2],w:st[3]};push(prev);changed();toast('City edge: '+st[4]+(st[4]==='Mixed'?' (lake east and west)':''));};
+$('#bLimit').onclick=()=>{
+  const i=SIZES.indexOf(S.n),nx=SIZES[(i+1)%SIZES.length],need=contentHalf(S);
+  const big=nx/2<need;
+  const prev=snap();S.n=big?SIZES[SIZES.length-1]:nx;push(prev);changed();fit();
+  toast(big?'Your city is bigger than '+nx*M_PER_CELL+' m, so the limit stays at '+S.n*M_PER_CELL+' m':'City limit '+S.n*M_PER_CELL+' × '+S.n*M_PER_CELL+' m');};
+function fit(){const h=S.n/2+3;cam.x=0;cam.y=0;cam.s=clamp(Math.min(W/(2*h),H/(2*h)),8,60);dirty=true;}
+/* data dialog */
+let newArm=false;
+$('#bData').onclick=()=>{$('#dtxt').value=snap();$('#dlg').hidden=false;newArm=false;$('#dNew').textContent='New city';$('#dNew').classList.remove('bad');};
+$('#dClose').onclick=()=>{$('#dlg').hidden=true;};
+$('#dCopy').onclick=async()=>{const t=$('#dtxt');try{await navigator.clipboard.writeText(t.value);toast('Copied');}catch(e){t.focus();t.select();toast('Press Copy on the selected text');}};
+$('#dLoad').onclick=()=>{try{const prev=snap();loadStr($('#dtxt').value);push(prev);$('#dlg').hidden=true;fit();toast('City loaded');}catch(e){toast('That text is not a saved city');}};
+$('#dNew').onclick=()=>{
+  if(!newArm){newArm=true;$('#dNew').textContent='Tap again to clear';$('#dNew').classList.add('bad');return;}
+  const prev=snap();S={r:[],b:[],t:[],a:[],o:[],z:[],n:S.n,e:S.e};sel=null;push(prev);changed();$('#dlg').hidden=true;fit();};
+/* export for Block Runner: simplified shapes here, full detail is rebuilt there */
+function exportMap(){
+  const r2=v=>Math.round(v*100)/100;
+  return {format:'octagrid-city',version:2,name:'Octagrid city',cellMeters:M_PER_CELL,bounds:{x0:-S.n/2,y0:-S.n/2,x1:S.n/2,y1:S.n/2},edges:{...S.e},edgeDepth:EDGE_D,
+    note:'Units are grid cells (1 cell = 10 m). x grows east, y grows south. rot is degrees clockwise in 45 degree steps. Buildings carry type, variant (0-14) and seed so Block Runner can rebuild the full detailed version.',
+    roads:S.r.map(r=>({a:r.a.slice(),b:r.b.slice(),type:r.t,width:RT[r.t].w,...(r.c?{control:r.c.slice()}:{}),points:pl(r).map(q=>[r2(q[0]),r2(q[1])])})),
+    buildings:S.b.filter(b=>b.kind==='solid').map(b=>({type:b.type,variant:b.v,seed:b.seed,x:r2(b.x),y:r2(b.y),w:b.w,d:b.d,rot:b.rot,floors:b.fl})),
+    parks:S.b.filter(b=>b.kind==='park').map(b=>({x:r2(b.x),y:r2(b.y),w:b.w,d:b.d,rot:b.rot})),
+    water:S.b.filter(b=>b.kind==='water').map(b=>({x:r2(b.x),y:r2(b.y),w:b.w,d:b.d,rot:b.rot})),
+    areas:S.a.map(a=>({kind:a.k==='bld'?'building':a.k,points:a.pts.map(p=>[r2(p[0]),r2(p[1])]),...(a.k==='bld'?{type:a.type,variant:a.v||0,floors:a.fl,seed:a.seed}:{})})),
+    trees:S.t.map(t=>({x:r2(t.x),y:r2(t.y),kind:t.k})),
+    props:S.o.map(o=>{const T=CAR[o.k];return {kind:o.k,x:r2(o.x),y:r2(o.y),rot:o.rot,...(T?{color:T.cols[o.c%T.cols.length]}:(o.k==='ped'?{color:VCOL[(o.c||0)%15]}:{}))};})};}
+$('#bExport').onclick=async()=>{
+  if(!S.r.length&&!S.b.length&&!S.a.length){toast('Nothing to export yet');return;}
+  const txt=JSON.stringify(exportMap());
+  let dl=null;try{dl=await claude.use('downloads');}catch(e){}
+  if(dl){try{await dl.save({filename:'blockrunner-map.json',data:txt});toast('Map file saved');return;}
+    catch(e){if(e&&e.code==='declined')return;}}
+  $('#dtxt').value=txt;$('#dlg').hidden=false;toast('Saving a file is not available here. Copy the text instead.');};
+/* keys */
+addEventListener('keydown',e=>{
+  if(e.target.tagName==='TEXTAREA')return;
+  if(e.code==='Space'){spaceDown=true;e.preventDefault();}
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?redo():undo();return;}
+  if(e.key==='Escape'){pending=null;curvePts=[];areaPts=[];sel=null;renderStrip();dirty=true;}
+  if(e.key==='Enter'&&tool==='area')closeArea();
+  if((e.key==='Delete'||e.key==='Backspace')&&sel)del();
+  if(e.key.toLowerCase()==='r'){if(sel&&(sel.k==='b'||sel.k==='o'))mutate(o=>{o.rot=(o.rot+45)%360;});else{ghostRot=(ghostRot+45)%360;renderStrip();dirty=true;}}
+  const map={'1':'select','2':'road','3':'build','4':'area','5':'obj','6':'trees','7':'erase','8':'pan'};if(map[e.key])setTool(map[e.key]);});
+addEventListener('keyup',e=>{if(e.code==='Space')spaceDown=false;});
+
+/* ---------- boot ---------- */
+function resize(){const r=$('#stage').getBoundingClientRect();W=Math.max(1,r.width);H=Math.max(1,r.height);dpr=Math.min(devicePixelRatio||1,2.5);
+  cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);dirty=true;}
+new ResizeObserver(resize).observe($('#stage'));
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',readTheme);
+new MutationObserver(readTheme).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+readTheme();
+let loaded=false;
+try{const v=localStorage.getItem(KEY)||localStorage.getItem(KEY1);if(v){loadStr(v);loaded=true;}}catch(e){}
+if(!loaded){seed();changed();}
+undoS=[];redoS=[];resize();fit();renderRail();renderStrip();syncBtns();stats();
+/* online save: one shared city document in the artifact db, loaded the same on every device */
+let cloud=null,cloudStamp=0;
+async function cloudInit(){
+  try{const db=await claude.use('db');if(!db){$('#bSave').hidden=true;return;}cloud=db.doc('city/main');
+    const sn=await cloud.get();
+    if(sn.exists){const d=sn.data();cloudStamp=d.savedAt||0;
+      if(d.json&&!undoS.length){try{loadStr(d.json);undoS=[];redoS=[];fit();toast('Loaded your saved city');}catch(e){}}}
+  }catch(e){cloud=null;}
+}
+$('#bSave').onclick=async()=>{
+  if(!cloud){toast('Online save is not available here');return;}
+  const b=$('#bSave');b.disabled=true;b.textContent='Saving…';
+  try{cloudStamp=Date.now();await cloud.set({json:snap(),savedAt:cloudStamp,name:'Octagrid city'});toast('Saved online · opens the same on every device');}
+  catch(e){toast('Could not save online');}
+  b.disabled=false;b.textContent='Save';};
+cloudInit();
+window.__oct={get S(){return S;},fillVoid,setTool,exportMap,commitArea,closeArea,toS,cam,get W(){return W;}};
+loop();
+})();
+</script>
